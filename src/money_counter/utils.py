@@ -4,10 +4,11 @@ import os
 import pickle
 import time
 from collections import defaultdict, deque
-from typing import Any, Dict, Iterable, TypeVar
+from typing import Any, Dict, Iterable, List, TypeVar
 
 import torch
 import torch.distributed as dist
+import torchvision
 
 
 class SmoothedValue(object):
@@ -352,3 +353,29 @@ def decode_data(map: Dict[Any, int], data: Iterable[int]):
 
     for item in data:
         yield inverted_map[item]
+
+
+class Timer:
+    def __init__(self):
+        self.reset()
+
+    def reset(self):
+        self._start = 0.
+        self._end = 0.
+
+    def start(self):
+        self._start = time.time()
+
+    def stop(self):
+        self._end = time.time()
+
+    def elapsed(self):
+        return self._end - self._start
+
+    def __enter__(self):
+        self.start()
+        return self
+
+    def __exit__(self, *args):
+        self.stop()
+        return self

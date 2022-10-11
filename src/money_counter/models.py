@@ -1,5 +1,5 @@
 import os
-from typing import Dict, Iterable, Literal, Optional, Tuple, TypedDict, Union
+from typing import Dict, Literal, Optional, Tuple, TypedDict, Union
 
 import torch
 import torchvision
@@ -7,7 +7,7 @@ from torch import Tensor
 from torchvision.models.detection.faster_rcnn import (FasterRCNN,
                                                       FastRCNNPredictor)
 
-from money_counter._constants import NUM_CLASSES
+from money_counter.constants import NUM_CLASSES
 
 
 class Target(TypedDict):
@@ -18,7 +18,7 @@ class Target(TypedDict):
     """The coordinates of the N bounding boxes in [x0, y0, x1, y1] format, ranging from 0 to W and 0 to H"""
 
     labels: Tensor  # IntTensor
-    """the label for each bounding box. 0 represents always the background class."""
+    """the label for each bounding box. 0 always represents the background class."""
 
     area: Tensor
     """The area of the bounding box. This is used during evaluation with the COCO metric, to separate the metric scores between small, medium and large boxes."""
@@ -43,10 +43,21 @@ class Target(TypedDict):
     # """
 
 
+class PredictedTarget(TypedDict):
+    """
+    Result of a prediction from the torchvision detection algorithms.
+    """
+    boxes: Tensor  # FloatTensor
+    """The coordinates of the N bounding boxes in [x0, y0, x1, y1] format, ranging from 0 to W and 0 to H"""
+    scores: Tensor  # FloatTensor
+    """The confidence score for each one of the N bounding boxes"""
+    labels: Tensor  # IntTensor
+    """the label for each bounding box. 0 always represents the background class."""
+
+
 def get_fasterrcnn_pretrained() -> Tuple[FasterRCNN, str]:
     """
     Constructs a Faster R-CNN model with a pre-trained backbone.
-
     """
     # load a model pre-trained on COCO
     model = torchvision.models.detection.fasterrcnn_resnet50_fpn(
@@ -97,7 +108,10 @@ class VersionManager:
     """Used to save and load the model state to/from the model_state_dir"""
 
     def __init__(self, model_state_dir):
-        """Initialize the VersionManager"""
+        """
+        Initialize the VersionManager.
+        :param model_state_dir: The directory where the model states are saved.
+        """
         self._model_state_dir = model_state_dir
 
     def load_model(self, model_name: str, model: torch.nn.Module, optimizer: Optional[torch.optim.Optimizer] = None, mode: Modes = "last"):
@@ -132,7 +146,7 @@ class VersionManager:
         print(f'Saving model to {model_path}')
 
         if os.path.exists(model_path):
-            print('Backuping model file at epoch "{epoch}"...')
+            print(f'Backuping model file at epoch "{epoch}"...')
 
             if os.path.exists(f'{model_path}.bak'):
                 os.remove(f'{model_path}.bak')
@@ -155,14 +169,17 @@ class VersionManager:
         """
         Format the path to the model file based on the model name and 
         the epoch.
-        :param model_name: The name of the model
-        :param epoch: The epoch of the model. Optional. If not provided,
-        the latest model will be returned.
+
+        :param model_name: 
+            The name of the model
+        :param epoch: 
+            The epoch of the model. Optional. If not provided,
+            the latest model will be returned.
         """
         dir = f'{self._model_state_dir}/{model_name}'
 
         if epoch is not None:
-            return f'{self._model_state_dir}/{model_name}/epoch_{epoch:3f}.pth'
+            return f'{self._model_state_dir}/{model_name}/epoch_{epoch:03}.pth'
 
         if os.path.exists(dir):
             files = [file for file in os.listdir(dir) if file.endswith('.pth')]
