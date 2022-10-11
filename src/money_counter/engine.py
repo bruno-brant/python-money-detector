@@ -1,14 +1,17 @@
 import math
 import sys
-import time
+from typing import List
 
 import torch
+import torchvision
 import torchvision.models.detection.mask_rcnn
 from torch.utils.data import DataLoader
 
 from .coco_eval import CocoEvaluator
 from .coco_utils import get_coco_api_from_dataset
-from .utils import MetricLogger, SmoothedValue, reduce_dict
+from .utils import MetricLogger, SmoothedValue, Timer, reduce_dict
+
+from .models import PredictedTarget
 
 
 def train_one_epoch(
@@ -66,32 +69,6 @@ def train_one_epoch(
     return metric_logger
 
 
-class Timer:
-    def __init__(self):
-        self.reset()
-
-    def reset(self):
-        self._start = 0.
-        self._end = 0.
-
-    def start(self):
-        self._start = time.time()
-
-    def stop(self):
-        self._end = time.time()
-
-    def elapsed(self):
-        return self._end - self._start
-
-    def __enter__(self):
-        self.start()
-        return self
-
-    def __exit__(self, *args):
-        self.stop()
-        return self
-
-
 def _get_iou_types(model):
     model_without_ddp = model
     if isinstance(model, torch.nn.parallel.DistributedDataParallel):
@@ -132,7 +109,7 @@ def evaluate(model: torch.nn.Module, data_loader: DataLoader, device: torch.devi
                        for output in outputs]
 
         outputs = {target["image_id"].item(): output
-               for target, output in zip(targets, outputs)}
+                   for target, output in zip(targets, outputs)}
 
         with Timer() as evaluator_time:
             coco_evaluator.update(outputs)
@@ -154,3 +131,17 @@ def evaluate(model: torch.nn.Module, data_loader: DataLoader, device: torch.devi
     torch.set_num_threads(n_threads)
 
     return coco_evaluator
+
+
+def apply_nms(predicted_targets: List[PredictedTarget], nms_threshold: float = 0.5):
+    """
+    Applies non-maximum suppression to the predicted targets.
+    """
+    for i, predicted_target in enumerate(predicted_targets):
+        boxes = predicted_target['boxes']
+        scores = predicted_target['scores']
+        labels = predicted_target['labels']
+        keep = torchvision.ops.nms(boxes, scores, nms_threshold)
+        predicted_targets[i]['boxes'] = boxes[keep]
+        predicted_targets[i]['scores'] = scores[keep]
+        predicted_targets[i]['labels'] = labels[keep]
