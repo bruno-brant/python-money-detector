@@ -1,3 +1,6 @@
+"""
+Some bounding box operations.
+"""
 from typing import Tuple
 
 

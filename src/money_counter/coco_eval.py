@@ -43,7 +43,7 @@ class CocoEvaluator(object):
 
     def synchronize_between_processes(self):
         for iou_type in self.iou_types:
-            self.eval_imgs[iou_type] = np.concatenate(
+            self.eval_imgs[iou_type] = np.concatenate(  # type: ignore
                 self.eval_imgs[iou_type], 2)
             create_common_coco_eval(
                 self.coco_eval[iou_type], self.img_ids, self.eval_imgs[iou_type])
@@ -312,6 +312,7 @@ def evaluate(self):
         print('useSegm (deprecated) is not None. Running {} evaluation'.format(p.iouType))
     # print('Evaluate annotation type *{}*'.format(p.iouType))
     p.imgIds = list(np.unique(p.imgIds))
+    
     if p.useCats:
         p.catIds = list(np.unique(p.catIds))
     p.maxDets = sorted(p.maxDets)
@@ -325,6 +326,9 @@ def evaluate(self):
         computeIoU = self.computeIoU
     elif p.iouType == 'keypoints':
         computeIoU = self.computeOks
+    else:
+        raise Exception('unknown iouType for evaluation')
+    
     self.ious = {
         (imgId, catId): computeIoU(imgId, catId)
         for imgId in p.imgIds

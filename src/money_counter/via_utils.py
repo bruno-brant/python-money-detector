@@ -1,25 +1,26 @@
 from typing import Any, Dict, List, Tuple
 
 import torch
-from PIL import Image
-from money_counter.models import Target
-from vgg_image_annotation import v2
 
 from money_counter.bounding_box import get_bbox_area
+from money_counter.models import Target
 from money_counter.utils import encode_data
+from vgg_image_annotation import v2
+
 
 def to_target(
         metadata: v2.ImageMetadata, image_size: Tuple[int, int], label_map: Dict[Any, int], filename_map: Dict[Any, int]) -> Target:
     """
     Converts a image metadata into a Target.
-        :param metadata: 
-                        The image metadata.
-        :param label_map: 
-                        A dictionary mapping label names to label indices. Will be updated with new labels.
-        :param filename_map: 
-                        A dictionary mapping filenames to image indices. Will be updated with new filenames.
-        :returns: 
-                        A Target dictionary.
+
+    :param metadata: 
+        The image metadata.
+    :param label_map: 
+        A dictionary mapping label names to label indices. Will be updated with new labels.
+    :param filename_map: 
+        A dictionary mapping filenames to image indices. Will be updated with new filenames.
+    :returns: 
+        A Target dictionary.
     """
     regions = metadata['regions']
     values = [region['region_attributes']['Value'] for region in regions]
