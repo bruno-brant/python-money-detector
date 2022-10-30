@@ -14,12 +14,12 @@ def print_losses(folder: str):
         path = os.path.join(folder, file)
         if os.path.isfile(path):
             if file.endswith('.pth'):
-                with open(path, 'rb') as f:
-                    model = torch.load(f)
-                    print(f'Loss for {path}:', model['loss'])
+                model = torch.load(path)
 
-                    if best is None or best[0] > model['loss']:
-                        best = (model['loss'], path)
+                print(f'Loss for {path}:', model['loss'])
+
+                if best is None or best[0] > model['loss']:
+                    best = (model['loss'], path)
 
         elif os.path.isdir(path):
             print_losses(path)
