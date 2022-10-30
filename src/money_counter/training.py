@@ -11,7 +11,20 @@ def train(
         model: nn.Module, model_name: str, data_loader_train: DataLoader, data_loader_test: DataLoader, *,
         num_epochs: int = 10, device: Optional[torch.device] = None,
         version_manager: Optional[models.VersionManager] = None, state_dir: Optional[str],
-        evaluate: bool = False, print_frequency: int = 10):
+        evaluate: bool = False, print_frequency: int = 10) -> None:
+    """
+    Train a model on a dataset.
+    :param model: The model to train.
+    :param model_name: The name of the model.
+    :param data_loader_train: A data loader containing the training data.
+    :param data_loader_test: A data loader containing the test data.
+    :param num_epochs: The number of epochs to train for.
+    :param device: The device to use in training.
+    :param version_manager: Used to save/load the model states to/from disk.
+    :param state_dir: The directory where states are being saved to. This is only used if version_manager is None. 
+    :param evaluate: Whether to evaluate the model after each epoch. 
+    :param print_frequency: How many frequent to print the loss details.    
+    """
 
     if device is None:
         device = torch.device(
@@ -47,10 +60,10 @@ def train(
     while epoch < num_epochs:
         # train for one epoch, printing every 10 iterations
         metric_logger = engine.train_one_epoch(model, optimizer, data_loader_train,
-                                        device, epoch, print_freq=print_frequency)
+                                               device, epoch, print_freq=print_frequency)
         # update the learning rate
         lr_scheduler.step()
-        
+
         loss = metric_logger.meters['loss'].global_avg
 
         version_manager.save_model(model_name, model, optimizer, epoch, loss)
