@@ -108,7 +108,7 @@ class CocoEvaluator(object):
 
             rles = [
                 mask_util.encode(
-                    np.array(mask[0, :, :, np.newaxis], dtype=np.uint8, order="F"))[0]
+                    np.array(mask[0, :, :, np.newaxis], dtype=np.uint8, order="F"))[0] # type: ignore
                 for mask in masks
             ]
             for rle in rles:

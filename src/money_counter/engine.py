@@ -9,9 +9,8 @@ from torch.utils.data import DataLoader
 
 from .coco_eval import CocoEvaluator
 from .coco_utils import get_coco_api_from_dataset
-from .utils import MetricLogger, SmoothedValue, Timer, reduce_dict
-
 from .models import PredictedTarget
+from .utils import MetricLogger, SmoothedValue, Timer, reduce_dict
 
 
 def train_one_epoch(
