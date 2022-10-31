@@ -9,12 +9,11 @@ from torch.nn.utils.rnn import pad_sequence
 from torch.utils import data
 from torch.utils.data import DataLoader, Dataset
 from torchvision import transforms
-from vgg_image_annotation import v2
 
 from money_counter.constants import CLASSES
-
 from money_counter.models import Target
 from money_counter.via_utils import is_region_annotated, to_target
+from vgg_image_annotation import v2
 
 TTransformedImage = TypeVar("TTransformedImage")
 
@@ -36,6 +35,19 @@ def _no_op_transform(x): return x
 label_map = {label: i for i, label in enumerate(CLASSES)}
 
 
+class ResizeImage:
+    """Resize the image to either 3000x4000 or 4000x3000 depending on the aspect ratio."""
+
+    def __call__(self, image: Image.Image) -> Image.Image:
+        size = image.size
+        if size[0] > size[1]:
+            image = image.resize((4000, 3000))
+        else:
+            image = image.resize((3000, 4000))
+
+        return image
+
+
 class CoinsDataset(Dataset[DatasetItem], Generic[TTransformedImage, TTransformedTarget]):
     """
     The dataset of coins.
@@ -48,22 +60,20 @@ class CoinsDataset(Dataset[DatasetItem], Generic[TTransformedImage, TTransformed
     """
 
     def __init__(
-            self, annotations_path: str, root_dir: str, *,
+            self, annotations_path: str, *,
             transform: ImageTransform = _no_op_transform, target_transform: TargetTransform = _no_op_transform,
             metadata_transform: Optional[Callable[[List[v2.ImageMetadata]], List[v2.ImageMetadata]]] = None):
         """
         Initialises a new instance of CoinsDataset.
-        :param viajson_path: path to the json file produced by the VIA (VGG Image Annotation) tool
+        :param annotations_path: path to the json file produced by the VIA (VGG Image Annotation) tool.
         :param root_dir: directory with all the images.
         :param transform: optional transform to be applied on a sample.
+        :param target_transform: optional transform to be applied on the target.
         """
         if not os.path.isfile(annotations_path):
             raise FileNotFoundError(f"File '{annotations_path}' not found.")
-
-        if not os.path.isdir(root_dir):
-            raise FileNotFoundError(f"Directory '{root_dir}' does not exist.")
-
-        self._root_dir = root_dir
+        
+        self._root_dir = os.path.dirname(annotations_path) # Images are relative to the path of the annotations file
         """Directory with the images."""
         self._transform = transform
         """Additional transform to be applied on the image."""
@@ -121,14 +131,14 @@ class CoinsDatasetOnlyAnnotated(CoinsDataset[TTransformedImage, TTransformedTarg
     """
 
     def __init__(
-            self, annotations_path: str, root_dir: str, transform: ImageTransform = _no_op_transform, transform_target: TargetTransform = _no_op_transform):
+            self, annotations_path: str, transform: ImageTransform = _no_op_transform, transform_target: TargetTransform = _no_op_transform):
         """
         Initialises a new instance of CoinsDataset.
         :param viajson_path: path to the json file produced by the VIA (VGG Image Annotation) tool
         :param root_dir: directory with all the images.
         :param transform: optional transform to be applied on a sample.
         """
-        super().__init__(annotations_path, root_dir,
+        super().__init__(annotations_path, 
                          transform=transform, target_transform=transform_target)
 
         # Remove the images that don't have any annotations
@@ -206,40 +216,21 @@ def collate_into_lists(items: List[DatasetItem]) -> Tuple[List[Image.Image], Lis
 
 TDL = TypeVar("TDL")
 
-
-# class CoinsDataLoader(DataLoader[TDL]):
-#     """Typed DataLoader for the Coins dataset."""
-
-#     def __init__(self, dataset: Dataset[TDL], batch_size: int = 1, shuffle: bool = True, num_workers: int = 0, **kwargs):
-#         """
-#         Create a new DataLoader for the Coins dataset.
-#         :param dataset: The dataset to load.
-#         :param batch_size: The number of items to load at once.
-#         :param shuffle: Whether to shuffle the dataset before loading.
-#         :param num_workers: The number of workers to use for loading.
-#         """
-#         super().__init__(dataset, batch_size, shuffle,
-#                          collate_fn=collate_into_lists, num_workers=num_workers, **kwargs)
-
-#     def __iter__(self) -> Iterator[Tuple[List[Image.Image], List[Target]]]:
-#         return super().__iter__()
-
-
 default_transform = transforms.Compose([
     transforms.ToTensor(),
-    transforms.ConvertImageDtype(torch.float)
+    transforms.ConvertImageDtype(torch.float),
+    ResizeImage()
 ])
 
 
-def get_data_loaders(dataset_dir: str, transform: ImageTransform = default_transform, batch_size=3):
+def get_data_loaders(dataset_path: str, transform: ImageTransform = default_transform, batch_size=3):
     """Get train and test data loaders."""
 
-    json_path = f'{dataset_dir}/coins.json'
-    coins_imgs_dir = f'{dataset_dir}/images/'
+    json_path = dataset_path
 
     # use our dataset and defined transformations
     source = CoinsDatasetOnlyAnnotated(
-        json_path, coins_imgs_dir, transform=transform)
+        dataset_path, transform=transform)
     #dataset_test = CoinsDatasetOnlyAnnotated(json_path, coins_imgs_dir, transform=transform)
 
     # split the dataset in train and test set

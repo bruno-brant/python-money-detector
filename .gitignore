@@ -3,3 +3,4 @@
 **/__pycache__/
 **/.pytest_cache/
 model_state/
+model_final/
