@@ -93,6 +93,16 @@ def get_fasterrcnn_untrained() -> Tuple[FasterRCNN, str]:
 
     return model, "fasterrcnn_resnet50_fpn"
 
+def get_model(model_name) -> torch.nn.Module:
+    """Gets the model for the given model name."""
+    match model_name:
+        case 'fasterrcnn_resnet50_fpn':
+            return get_fasterrcnn_pretrained()[0]
+        case 'fasterrcnn_resnet50_fpn_pretrained':
+            return get_fasterrcnn_pretrained()[0]
+        case _:
+            raise ValueError(f'Unknown model name: {model_name}')
+
 
 Checkpoint = TypedDict('Checkpoint', {
     'epoch': int,

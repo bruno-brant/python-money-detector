@@ -4,11 +4,10 @@ import os
 import pickle
 import time
 from collections import defaultdict, deque
-from typing import Any, Dict, Iterable, List, TypeVar
+from typing import Any, Dict, Iterable, TypeVar
 
 import torch
 import torch.distributed as dist
-import torchvision
 
 
 class SmoothedValue(object):
@@ -379,3 +378,6 @@ class Timer:
     def __exit__(self, *args):
         self.stop()
         return self
+
+def get_device() -> torch.device:
+    return torch.device("cuda" if torch.cuda.is_available() else "cpu")
