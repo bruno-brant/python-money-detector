@@ -2,5 +2,6 @@
 .venv/
 **/__pycache__/
 **/.pytest_cache/
+
+# Trainin output
 model_state/
-model_final/
