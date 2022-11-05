@@ -1,3 +1,6 @@
+"""
+Utilities for loading and preparing a COCO dataset.
+"""
 import copy
 import os
 
@@ -7,7 +10,9 @@ import torchvision
 from pycocotools import mask as coco_mask
 from pycocotools.coco import COCO
 
-from .transforms import Compose
+#from .transforms import Compose
+
+
 
 
 class FilterAndRemapCocoCategories(object):
@@ -230,7 +235,7 @@ def get_coco(root, image_set, transforms, mode='instances'):
 
     if transforms is not None:
         t.append(transforms)
-    transforms = Compose(t)
+    transforms = torchvision.transforms.Compose(t)
 
     img_folder, ann_file = PATHS[image_set]
     img_folder = os.path.join(root, img_folder)

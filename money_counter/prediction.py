@@ -7,7 +7,7 @@ import torch
 from PIL import Image
 from torchvision import transforms
 
-from money_counter import models, utils, engine
+from money_counter import engine, models, utils
 
 
 class Predictor:
@@ -28,6 +28,10 @@ class Predictor:
         """
         Predicts the number of coins in an image.
         """
+
+        if image.mode != 'RGB':
+            image = image.convert('RGB')
+
         image_t = cast(torch.Tensor, self._transform(image))
         image_t = image_t.to(self.device)
 
