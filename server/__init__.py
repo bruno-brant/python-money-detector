@@ -5,6 +5,7 @@ import io
 import os
 from typing import cast
 
+import flask
 import torch
 from flask import Flask, jsonify, request
 from PIL import Image
@@ -28,27 +29,57 @@ def initialize_predictor():
 
 predictor = initialize_predictor()
 
-
 app = Flask(__name__)
+
+def decode_data_url(data_url: str) -> Image.Image:
+    """Decode a data URL into a PIL image.
+
+    Args:
+        data_url (str): The data URL to decode.
+
+    Returns:
+        Image.Image: The decoded image.
+    """
+    # split the data URL into its components
+    data_url = data_url.split(',')[1]
+
+    # decode the image and return it
+    image = Image.open(io.BytesIO(base64.b64decode(data_url)))
+    return image
+
+
+@app.after_request
+def handle_cors(response: flask.Response) -> flask.Response:
+    #if (request.method == 'OPTIONS'):
+    response.headers.add("Access-Control-Allow-Origin", "*")
+    response.headers.add('Access-Control-Allow-Headers', "*")
+    response.headers.add('Access-Control-Allow-Methods', "*")
+    return response
 
 
 @app.route("/predict", methods=["POST"])
 def predict():
+    print("predicting image...")
+
     match request.content_type:
         case 'application/json':
             image_base64 = request.json['image']  # type: ignore
+            #image = decode_data_url(image_data_url)
             image_bytes = base64.b64decode(image_base64)
             image = Image.open(io.BytesIO(image_bytes))
 
         case 'image/jpeg' | 'image/png':
             image = Image.open(io.BytesIO(request.data))  # type: ignore
         case _:
-            return jsonify({'error': 'unsupported content type'})
+            return jsonify({'error': 'unsupported content type'}), 500
+        
+    print(f'image size: {image.size}')
 
     result = predictor.predict(image)
-    result = {k: cast(torch.Tensor, v).cpu().numpy().tolist() for k, v in result.items()}
+    result = {k: cast(torch.Tensor, v).cpu().numpy().tolist()
+              for k, v in result.items()}
 
-    return result
+    return jsonify(result), 200
 
 # Hello world flask
 
