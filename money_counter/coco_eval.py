@@ -1,3 +1,6 @@
+"""
+Tools for evaluating detections using the COCO metrics.
+"""
 import copy
 import json
 from collections import defaultdict
