@@ -114,8 +114,9 @@ def get_bounding_box(shape: ShapeAttributes, size: Tuple[int, int]) -> BoundingB
         ((x1, y1), (x2, y2)), the top left and bottom right corners of
         the bounding box.
     """
-    match shape['name']:
-        case 'circle':
+    name = shape['name'] 
+    
+    if name == 'circle':
             shape = cast(ShapeAttributesCircle, shape)
             cx = shape['cx']
             cy = shape['cy']
@@ -124,7 +125,7 @@ def get_bounding_box(shape: ShapeAttributes, size: Tuple[int, int]) -> BoundingB
             topleft = (cx - r, cy - r)
             bottomright = (cx + r, cy + r)
 
-        case 'ellipse':
+    elif name == 'ellipse':
             shape = cast(ShapeAttributesEllipse, shape)
             cx = shape['cx']  # x-position of the center
             cy = shape['cy']  # y-position of the center
@@ -144,7 +145,7 @@ def get_bounding_box(shape: ShapeAttributes, size: Tuple[int, int]) -> BoundingB
             # bottomright = (bottomright[0] * np.cos(theta) - bottomright[1] * np.sin(
             #     theta), bottomright[0] * np.sin(theta) + bottomright[1] * np.cos(theta))
 
-        case 'polyline':
+    elif name ==  'polyline':
             shape = cast(ShapeAttributesPolyline, shape)
             # Get the bounding box for the polyline
             topleft = np.array([min(shape['all_points_x']),
@@ -152,7 +153,7 @@ def get_bounding_box(shape: ShapeAttributes, size: Tuple[int, int]) -> BoundingB
             bottomright = np.array(
                 [max(shape['all_points_x']), max(shape['all_points_y'])])
 
-        case 'polygon':
+    elif name == 'polygon':
             shape = cast(ShapeAttributesPolygon, shape)
             # Get the bounding box for the polygon
             topleft = np.array([min(shape['all_points_x']),
@@ -160,14 +161,14 @@ def get_bounding_box(shape: ShapeAttributes, size: Tuple[int, int]) -> BoundingB
             bottomright = np.array(
                 [max(shape['all_points_x']), max(shape['all_points_y'])])
 
-        case 'rect':
+    elif name == 'rect':
             shape = cast(ShapeAttributesRect, shape)
             topleft = (shape['x'], shape['y'])
             bottomright = (shape['x'] + shape['width'],
                             shape['y'] + shape['height'])
 
-        case other:
-            raise ValueError(f'Unknown shape {other}')
+    else:
+            raise ValueError(f'Unknown shape {name}')
 
     # Make sure the bounding box is within the image
     topleft = [max(c, 0) for c in topleft]

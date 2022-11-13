@@ -22,14 +22,13 @@ def render_boxes(ax: Axes, box_: torch.Tensor, label: str, color: str, position:
     ax.add_patch(rect)
 
     # Write value on the box
-    match position:
-        case 'top':
-            ax.text(box[0], box[1], label, color=color, fontsize=12)
-        case 'bottom':
-            ax.text(box[0], box[3], label, color=color, fontsize=12)
-        case 'center':
-            ax.text((box[0] + box[2]) / 2, (box[1] + box[3]) /
-                    2, label, color=color, fontsize=12)
+    if position == 'top':
+        ax.text(box[0], box[1], label, color=color, fontsize=12)
+    if position == 'bottom':
+        ax.text(box[0], box[3], label, color=color, fontsize=12)
+    if position ==  'center':
+        ax.text((box[0] + box[2]) / 2, (box[1] + box[3]) /
+                2, label, color=color, fontsize=12)
 
 
 def render_image_and_boxes(image: torch.Tensor, label_map: Dict[int, str],
