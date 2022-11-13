@@ -14,7 +14,7 @@ from money_counter import constants, models, prediction
 
 
 def initialize_predictor():
-    model, model_name = models.get_fasterrcnn_pretrained()
+    model, model_name = models.get_fasterrcnn_untrained()
     version_manager = models.VersionManager(constants.MODEL_STATE_DIR)
     epoch, loss = version_manager.load_model(model_name, model)
     
