@@ -26,7 +26,7 @@ jobs:
       
     - name: Adds metadata to the image
       env:
-        sha: ${{ GITHUB_SHA }}
+        sha: ${{ env.GITHUB_SHA }}
       run: docker label "commit=$sha"
       
     
