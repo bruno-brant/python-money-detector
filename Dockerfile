@@ -11,7 +11,6 @@ RUN pip install --upgrade pip
 
 # Install packages
 RUN pip3 install -r requirements.txt 
-#RUN pip3 install torch torchvision torchaudio --extra-index-url https://download.pytorch.org/whl/cu117
 RUN pip3 install gunicorn
 
 # If the above doesn't work, try this
@@ -20,9 +19,9 @@ COPY vgg_image_annotation /app/vgg_image_annotation
 COPY money_counter /app/money_counter
 COPY model_final /app/model_final
 
-# Make port 80 available to the world outside this container
+# Make port 8000 available to the world outside this container
 EXPOSE 8000
 
 # Run a WSGI server
 #CMD ["gunicorn", "-b", "server:app", "-w", "4", "-k", "gevent", "--timeout", "120", "--log-level", "debug", "--log-file", "-", "server:app"]
-CMD ["gunicorn", "-w", "4", "server:app"]
+CMD ["gunicorn", "-w", "4", "--log-level", "debug", "--log-file", "-", "server:app"]
