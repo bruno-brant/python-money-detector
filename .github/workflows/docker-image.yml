@@ -1,33 +1,40 @@
-name: Docker Image CI
-
-on:
-  push:
-    branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
+on: [push]
+name: Build and Deploy
 
 jobs:
-
-  build:
-    runs-on: ubuntu-latest
-    env: 
-      current_date: $(date +%s)
-    steps:
-    - uses: actions/checkout@v3
-    
-    - name: Registry Login
-      # You may pin to the exact commit or the version.
-      env: 
-        pass: ${{ secrets.REGISTRY_PASSWORD }}
+    build-and-deploy:
+        runs-on: ubuntu-latest
+        steps:
+        # checkout the repo
+        - name: 'Checkout GitHub Action'
+          uses: actions/checkout@main
+          
+        - name: 'Login via Azure CLI'
+          uses: azure/login@v1
+          with:
+            creds: ${{ secrets.AZURE_CREDENTIALS }}
         
-      run: echo $pass | docker login moneydetector.azurecr.io -u moneydetector --password-stdin
-    
-    - name: Build the Docker image
-      env: 
-        sha: ${{ github.GITHUB_SHA }}
-      run: docker build . --label "commit=$sha" --file Dockerfile --tag moneydetector.azurecr.io/server:${{github.run_number}}
-      
-    - name: Push to private registry
-      env: 
-        pass: ${{ secrets.RegistryPassword }}
-      run: docker push moneydetector.azurecr.io/server:${{github.run_number}}
+        - name: 'Build and push image'
+          uses: azure/docker-login@v1
+          with:
+            login-server: ${{ secrets.REGISTRY_LOGIN_SERVER }}
+            username: ${{ secrets.REGISTRY_USERNAME }}
+            password: ${{ secrets.REGISTRY_PASSWORD }}
+        - run: |
+            docker build . --label "COMMIT_SHA=${{ github.sha }}" -t ${{ secrets.REGISTRY_LOGIN_SERVER }}/${{ secrets.INFERENCE_SERVER_IMAGE_NAME }}:${{ github.run_number }}
+            docker push ${{ secrets.REGISTRY_LOGIN_SERVER }}/${{ secrets.INFERENCE_SERVER_IMAGE_NAME }}:${{ github.run_number }}
+
+        - name: 'Deploy to Azure Container Instances'
+          uses: 'azure/aci-deploy@v1'
+          with:
+            resource-group: ${{ secrets.RESOURCE_GROUP }}
+            dns-name-label: ${{ secrets.DNS_NAME }}
+            image: ${{ secrets.REGISTRY_LOGIN_SERVER }}/${{ secrets.INFERENCE_SERVER_IMAGE_NAME }}:${{ github.run_number }}
+            registry-login-server: ${{ secrets.REGISTRY_LOGIN_SERVER }}
+            registry-username: ${{ secrets.REGISTRY_USERNAME }}
+            registry-password: ${{ secrets.REGISTRY_PASSWORD }}
+            name: money-counter-inference
+            location: 'east us'
+            gpu-sku: K80
+            gpu-count: 1
+            
