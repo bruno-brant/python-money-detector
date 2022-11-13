@@ -37,4 +37,7 @@ jobs:
             location: 'east us'
             gpu-sku: K80
             gpu-count: 1
+            cpu: 2
+            memory: 8.0
+            
             
