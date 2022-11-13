@@ -19,17 +19,14 @@ jobs:
       # You may pin to the exact commit or the version.
       env: 
         pass: ${{ secrets.REGISTRY_PASSWORD }}
+        
       run: echo $pass | docker login moneydetector.azurecr.io -u moneydetector --password-stdin
     
     - name: Build the Docker image
-      run: docker build . --file Dockerfile --tag moneydetector.azurecr.io/server:${{github.run_number}}
-      
-    - name: Adds metadata to the image
-      env:
+      env: 
         sha: ${{ github.GITHUB_SHA }}
-      run: docker label "commit=$sha"
+      run: docker build . --label "commit=$sha" --file Dockerfile --tag moneydetector.azurecr.io/server:${{github.run_number}}
       
-    
     - name: Push to private registry
       env: 
         pass: ${{ secrets.RegistryPassword }}
