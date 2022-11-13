@@ -24,8 +24,10 @@ jobs:
     - name: Build the Docker image
       run: docker build . --file Dockerfile --tag moneydetector.azurecr.io/server:${{github.run_number}}
       
-    - name: Adds metadata to the image    
-      run: docker label "commit=${{ GITHUB_SHA }}"
+    - name: Adds metadata to the image
+      env:
+        sha: ${{ GITHUB_SHA }}
+      run: docker label "commit=$sha"
       
     
     - name: Push to private registry
