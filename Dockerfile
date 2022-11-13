@@ -21,7 +21,13 @@ COPY model_final /app/model_final
 
 # Make port 8000 available to the world outside this container
 EXPOSE 8000
+EXPOSE 5000
 
 # Run a WSGI server
 #CMD ["gunicorn", "-b", "server:app", "-w", "4", "-k", "gevent", "--timeout", "120", "--log-level", "debug", "--log-file", "-", "server:app"]
-CMD ["gunicorn", "-w", "4", "--log-level", "debug", "--log-file", "-", "server:app"]
+#CMD ["gunicorn", "-w", "4", "--log-level", "debug", "--log-file", "-", "server:app"]
+
+ENV FLASK_APP=server:app
+ENV FLASK_DEBUG=1
+
+CMD ["python", "-m", "flask", "run", "--no-debugger", "--no-reload"]

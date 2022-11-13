@@ -18,8 +18,9 @@ def initialize_predictor():
 
     # load the model state
     state_path = os.path.join(constants.MODEL_FINAL_DIR, model_name + '.pth')
+    print ('loading model state from {}'.format(state_path))
+    
     state = torch.load(state_path)
-
     model.load_state_dict(state['model_state_dict'])
 
     predictor = prediction.Predictor(model, model_name)
