@@ -10,23 +10,17 @@ import torch
 from flask import Flask, jsonify, request
 from PIL import Image
 
-from money_counter import constants, models, prediction, utils
+from money_counter import constants, models, prediction
 
 
 def initialize_predictor():
-    model, model_name = models.get_fasterrcnn_untrained()
-
-    # load the model state
-    state_path = os.path.join(constants.MODEL_FINAL_DIR, model_name + '.pth')
-    print ('loading model state from {}'.format(state_path))
+    model, model_name = models.get_fasterrcnn_pretrained(None)
+    version_manager = models.VersionManager(constants.MODEL_STATE_DIR)
+    epoch, loss = version_manager.load_model(model_name, model)
     
-    state = torch.load(state_path)
-    model.load_state_dict(state['model_state_dict'])
+    print(f'Loaded model from epoch {epoch} with loss {loss}')
 
-    predictor = prediction.Predictor(model, model_name)
-
-    return predictor
-
+    return prediction.Predictor(model, model_name)
 
 predictor = initialize_predictor()
 

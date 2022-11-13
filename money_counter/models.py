@@ -55,13 +55,13 @@ class PredictedTarget(TypedDict):
     """the label for each bounding box. 0 always represents the background class."""
 
 
-def get_fasterrcnn_pretrained() -> Tuple[FasterRCNN, str]:
+def get_fasterrcnn_pretrained(weights = "DEFAULT") -> Tuple[FasterRCNN, str]:
     """
     Constructs a Faster R-CNN model with a pre-trained backbone.
     """
     # load a model pre-trained on COCO
     model = torchvision.models.detection.fasterrcnn_resnet50_fpn(
-        weights="DEFAULT")
+        weights=weights)
 
     # replace the classifier with a new one, that has
     # num_classes which is user-defined
