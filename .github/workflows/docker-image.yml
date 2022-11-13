@@ -1,0 +1,29 @@
+name: Docker Image CI
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+
+  build:
+    runs-on: ubuntu-latest
+    env: 
+      current_date: $(date +%s)
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Login to private registry
+      env: 
+        pass: ${{ secrets.REGISTRY_PASSWORD }}
+      run: docker login -u moneydetector -p $pass
+    
+    - name: Build the Docker image
+      run: docker build . --file Dockerfile --tag moneydetector.azurecr.io/server:1.0.1:$($current_date)
+    
+    - name: Push to private registry
+      env: 
+        pass: ${{ secrets.RegistryPassword }}
+      run: docker push moneydetector.azurecr.io/server:1.0.1:$($current_date)
