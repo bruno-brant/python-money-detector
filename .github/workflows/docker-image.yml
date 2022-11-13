@@ -30,4 +30,4 @@ jobs:
     - name: Push to private registry
       env: 
         pass: ${{ secrets.RegistryPassword }}
-      run: docker push moneydetector.azurecr.io/server:1.0.1:${{github.run_number}}
+      run: docker push moneydetector.azurecr.io/server:${{github.run_number}}
