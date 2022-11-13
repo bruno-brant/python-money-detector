@@ -19,7 +19,7 @@ COPY vgg_image_annotation /app/vgg_image_annotation
 COPY money_counter /app/money_counter
 
 # Download the model state file
-ADD https://moneycounter.blob.core.windows.net/models/model_state/fasterrcnn_resnet50_fpn-pretrained/epoch_028.pth /app/model_state/fasterrcnn_resnet50_fpn-pretrained/epoch_028.pth
+ADD https://moneycounter.blob.core.windows.net/models/model_state/fasterrcnn_resnet50_fpn-pretrained/epoch_028.pth /app/model_state/fasterrcnn_resnet50_fpn/epoch_028.pth
 
 # Make port 8000 available to the world outside this container
 EXPOSE 8000
