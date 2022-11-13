@@ -7,6 +7,8 @@ from torch import Tensor
 from torchvision.models.detection.faster_rcnn import (FasterRCNN,
                                                       FastRCNNPredictor)
 
+from torchvision.models.detection import FasterRCNN_ResNet50_FPN_Weights
+
 from money_counter.constants import NUM_CLASSES
 
 
@@ -55,13 +57,13 @@ class PredictedTarget(TypedDict):
     """the label for each bounding box. 0 always represents the background class."""
 
 
-def get_fasterrcnn_pretrained(weights = "DEFAULT") -> Tuple[FasterRCNN, str]:
+def get_fasterrcnn_pretrained() -> Tuple[FasterRCNN, str]:
     """
     Constructs a Faster R-CNN model with a pre-trained backbone.
     """
-    # load a model pre-trained on COCO
+    # load a model pre-trained on COCO 
     model = torchvision.models.detection.fasterrcnn_resnet50_fpn(
-        weights=weights)
+        weights=FasterRCNN_ResNet50_FPN_Weights.COCO_V1)
 
     # replace the classifier with a new one, that has
     # num_classes which is user-defined
