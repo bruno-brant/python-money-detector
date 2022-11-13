@@ -24,12 +24,8 @@ ADD https://moneycounter.blob.core.windows.net/models/model_state/fasterrcnn_res
 # Make port 8000 available to the world outside this container
 EXPOSE 8000
 EXPOSE 5000
+EXPOSE 80
 
 # Run a WSGI server
 #CMD ["gunicorn", "-b", "server:app", "-w", "4", "-k", "gevent", "--timeout", "120", "--log-level", "debug", "--log-file", "-", "server:app"]
-#CMD ["gunicorn", "-w", "4", "--log-level", "debug", "--log-file", "-", "server:app"]
-
-ENV FLASK_APP=server:app
-ENV FLASK_DEBUG=1
-
-CMD ["python", "-m", "flask", "run", "--no-debugger", "--no-reload"]
+CMD ["gunicorn", "-w", "4", "--log-level", "debug", "-b", "0.0.0.0:80", "--log-file", "-", "server:app"]
