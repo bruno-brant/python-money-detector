@@ -22,9 +22,9 @@ jobs:
       run: echo $pass | docker login moneydetector.azurecr.io -u moneydetector --password-stdin
     
     - name: Build the Docker image
-      run: docker build . --file Dockerfile --tag moneydetector.azurecr.io/server:1.0.1:$($current_date)
+      run: docker build . --file Dockerfile --tag moneydetector.azurecr.io/server:1.0.1:${{github.run_number}}
     
     - name: Push to private registry
       env: 
         pass: ${{ secrets.RegistryPassword }}
-      run: docker push moneydetector.azurecr.io/server:1.0.1:$($current_date)
+      run: docker push moneydetector.azurecr.io/server:1.0.1:${{github.run_number}}
