@@ -22,7 +22,11 @@ jobs:
       run: echo $pass | docker login moneydetector.azurecr.io -u moneydetector --password-stdin
     
     - name: Build the Docker image
-      run: docker build . --file Dockerfile --tag moneydetector.azurecr.io/server:1.0.1:${{github.run_number}}
+      run: docker build . --file Dockerfile --tag moneydetector.azurecr.io/server:${{github.run_number}}
+      
+    - name: Adds metadata to the image    
+      run: docker label "commit=${{ GITHUB_SHA }}"
+      
     
     - name: Push to private registry
       env: 
