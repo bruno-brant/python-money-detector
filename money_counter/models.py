@@ -73,7 +73,7 @@ def get_fasterrcnn_pretrained() -> Tuple[FasterRCNN, str]:
     model.roi_heads.box_predictor = FastRCNNPredictor(
         in_features, NUM_CLASSES + 1)
 
-    return model, "fasterrcnn_resnet50_fpn-pretrained"
+    return model, "fasterrcnn_resnet50_fpn"
 
 
 def get_fasterrcnn_untrained() -> Tuple[FasterRCNN, str]:
