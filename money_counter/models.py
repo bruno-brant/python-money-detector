@@ -95,13 +95,13 @@ def get_fasterrcnn_untrained() -> Tuple[FasterRCNN, str]:
 
 def get_model(model_name) -> torch.nn.Module:
     """Gets the model for the given model name."""
-    match model_name:
-        case 'fasterrcnn_resnet50_fpn':
-            return get_fasterrcnn_pretrained()[0]
-        case 'fasterrcnn_resnet50_fpn_pretrained':
-            return get_fasterrcnn_pretrained()[0]
-        case _:
-            raise ValueError(f'Unknown model name: {model_name}')
+    if model_name == 'fasterrcnn_resnet50_fpn':
+        return get_fasterrcnn_pretrained()[0]
+    
+    if model_name == 'fasterrcnn_resnet50_fpn_pretrained':
+        return get_fasterrcnn_pretrained()[0]
+    
+    raise ValueError(f'Unknown model name: {model_name}')
 
 
 Checkpoint = TypedDict('Checkpoint', {
@@ -196,19 +196,19 @@ class VersionManager:
             # , key=lambda x: int(x.split('_')[1].split('.')[0]))
             files = sorted(files)
 
-            match mode:
-                case  "last":
-                    latest = files[-1]
-                    return f'{dir}/{latest}'
-                case "best":
-                    for file in files:
-                        file_list = [f'{dir}/{file}' for file in files]
-                        losses = [(torch.load(file)['loss'], file)
-                                  for file in file_list]
-                        file = min(zip(file_list, losses),
-                                   key=lambda x: x[1])[0]
-                        return file
-                case _:
-                    return f'{self ._model_state_dir}/{model_name}/epoch_00.pth'
+            if mode == "last":
+                latest = files[-1]
+                return f'{dir}/{latest}'
+
+            if mode ==  "best":
+                for file in files:
+                    file_list = [f'{dir}/{file}' for file in files]
+                    losses = [(torch.load(file)['loss'], file)
+                                for file in file_list]
+                    file = min(zip(file_list, losses),
+                                key=lambda x: x[1])[0]
+                    return file
+
+            return f'{self ._model_state_dir}/{model_name}/epoch_00.pth'
 
         return ""

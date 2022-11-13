@@ -61,17 +61,17 @@ def handle_cors(response: flask.Response) -> flask.Response:
 def predict():
     print("predicting image...")
 
-    match request.content_type:
-        case 'application/json':
-            image_base64 = request.json['image']  # type: ignore
-            #image = decode_data_url(image_data_url)
-            image_bytes = base64.b64decode(image_base64)
-            image = Image.open(io.BytesIO(image_bytes))
+    if request.content_type == 'application/json':
+        image_base64 = request.json['image']  # type: ignore
+        #image = decode_data_url(image_data_url)
+        image_bytes = base64.b64decode(image_base64)
+        image = Image.open(io.BytesIO(image_bytes))
 
-        case 'image/jpeg' | 'image/png':
-            image = Image.open(io.BytesIO(request.data))  # type: ignore
-        case _:
-            return jsonify({'error': 'unsupported content type'}), 500
+    elif request.content_type ==  'image/jpeg' or 'image/png':
+        image = Image.open(io.BytesIO(request.data))  # type: ignore
+
+    else:
+        return jsonify({'error': 'unsupported content type'}), 500
         
     print(f'image size: {image.size}')
 
