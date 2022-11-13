@@ -14,7 +14,7 @@ from money_counter import constants, models, prediction, utils
 
 
 def initialize_predictor():
-    model, model_name = models.get_fasterrcnn_pretrained()
+    model, model_name = models.get_fasterrcnn_untrained()
 
     # load the model state
     state_path = os.path.join(constants.MODEL_FINAL_DIR, model_name + '.pth')
