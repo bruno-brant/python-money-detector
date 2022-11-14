@@ -29,8 +29,10 @@ COPY money_counter /app/money_counter
 # Download the model state file
 ADD https://moneycounter.blob.core.windows.net/models/model_state/fasterrcnn_resnet50_fpn-pretrained/epoch_028.pth /app/model_state/fasterrcnn_resnet50_fpn/epoch_028.pth
 
-# Make port 8000 available to the world outside this container
+# Make sure the HTTPS port is exposed
 EXPOSE 443
 
+COPY gunicorn.conf.py /app
+
 # Run a WSGI server
-CMD ["gunicorn", "-w", "4", "--log-level", "debug", "-b", "0.0.0.0:443", "--log-file", "-", "--certfile", "/app/server.crt", "--keyfile", "/app/server.key", "server:app"]
+CMD ["gunicorn",  "server:app"]
