@@ -20,15 +20,29 @@ jobs:
       uses: azure/login@v1
       with:
         creds: ${{ secrets.AZURE_CREDENTIALS }}
-    
-    - name: 'Build and push image'
+
+    - name: 'Login to registry'
       uses: azure/docker-login@v1
       with:
         login-server: ${{ secrets.REGISTRY_LOGIN_SERVER }}
         username: ${{ secrets.REGISTRY_USERNAME }}
         password: ${{ secrets.REGISTRY_PASSWORD }}
-    - run: |
-        docker build . --label "COMMIT_SHA=${{ github.sha }}" -t ${{ secrets.REGISTRY_LOGIN_SERVER }}/${{ secrets.INFERENCE_SERVER_IMAGE_NAME }}:${{ github.run_number }}
+
+    - name: 'Pull previous image'
+      # skip on error
+      continue-on-error: true
+      env: 
+        version: $(${{ github.run_number }} - 1)
+      run: docker pull ${{ secrets.REGISTRY_LOGIN_SERVER }}/${{ secrets.INFERENCE_SERVER_IMAGE_NAME }}
+
+    - name: 'Build server image'
+      run: |
+        echo "${{ secrets.SERVER_CRT }}" > cert.pem
+        echo "${{ secrets.SERVER_KEY }}" > cert.key
+        docker build --label "COMMIT_SHA=${{ github.sha }}" -t ${{ secrets.REGISTRY_LOGIN_SERVER }}/${{ secrets.INFERENCE_SERVER_IMAGE_NAME }}:${{ github.run_number }} .
+    
+    - name: 'Push server image'
+      run: |
         docker push ${{ secrets.REGISTRY_LOGIN_SERVER }}/${{ secrets.INFERENCE_SERVER_IMAGE_NAME }}:${{ github.run_number }}
 
     - name: 'Deploy to Azure Container Instances'
@@ -45,7 +59,11 @@ jobs:
         gpu-sku: K80
         gpu-count: 1
         cpu: 2
-        memory: 8.0
-        ports: 80
-          
-          
+        memory: 6.0
+        ports: 443
+
+    # Tag as latest
+    - name: 'Tag the image as latest'
+      run: |
+        docker tag ${{ secrets.REGISTRY_LOGIN_SERVER }}/${{ secrets.INFERENCE_SERVER_IMAGE_NAME }}:${{ github.run_number }} ${{ secrets.REGISTRY_LOGIN_SERVER }}/${{ secrets.INFERENCE_SERVER_IMAGE_NAME }}:latest
+        docker push ${{ secrets.REGISTRY_LOGIN_SERVER }}/${{ secrets.INFERENCE_SERVER_IMAGE_NAME }}:latest
