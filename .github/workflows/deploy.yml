@@ -28,7 +28,7 @@ jobs:
         username: ${{ secrets.REGISTRY_USERNAME }}
         password: ${{ secrets.REGISTRY_PASSWORD }}
     - run: |
-        docker build . --label "COMMIT_SHA=${{ github.sha }}" -t ${{ secrets.REGISTRY_LOGIN_SERVER }}/${{ secrets.INFERENCE_SERVER_IMAGE_NAME }}:${{ github.run_number }}
+        docker build --build-arg "SERVER_CERTIFICATE=${{ secrets.SERVER_CRT }}" --build-arg "SERVER_KEY=${{ secrets.SERVER_KEY }}" --label "COMMIT_SHA=${{ github.sha }}" -t ${{ secrets.REGISTRY_LOGIN_SERVER }}/${{ secrets.INFERENCE_SERVER_IMAGE_NAME }}:${{ github.run_number }} .
         docker push ${{ secrets.REGISTRY_LOGIN_SERVER }}/${{ secrets.INFERENCE_SERVER_IMAGE_NAME }}:${{ github.run_number }}
 
     - name: 'Deploy to Azure Container Instances'
@@ -45,7 +45,7 @@ jobs:
         gpu-sku: K80
         gpu-count: 1
         cpu: 2
-        memory: 8.0
+        memory: 6.0
         ports: 80
           
           

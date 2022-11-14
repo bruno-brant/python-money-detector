@@ -17,10 +17,11 @@ RUN pip install --upgrade pip
 RUN pip3 install -r requirements.txt 
 RUN pip3 install gunicorn
 
-# WRITE CRT file from env variable
-RUN echo $SERVER_CERTIFICATE > /app/certs/server.crt
-RUN echo $SERVER_KEY > /app/certs/server.key
+# Create certificate files from env variable
+RUN echo $SERVER_CERTIFICATE > /app/server.crt
+RUN echo $SERVER_KEY > /app/server.key
 
+# Copy the source code
 COPY server /app/server/
 COPY vgg_image_annotation /app/vgg_image_annotation
 COPY money_counter /app/money_counter
@@ -32,5 +33,4 @@ ADD https://moneycounter.blob.core.windows.net/models/model_state/fasterrcnn_res
 EXPOSE 443
 
 # Run a WSGI server
-#CMD ["gunicorn", "-b", "server:app", "-w", "4", "-k", "gevent", "--timeout", "120", "--log-level", "debug", "--log-file", "-", "server:app"]
-CMD ["gunicorn", "-w", "4", "--log-level", "debug", "-b", "0.0.0.0:443", "--log-file", "-", "--certfile", "/app/certs/server.crt", "--keyfile", "/app/certs/server.key", "server:app"]
+CMD ["gunicorn", "-w", "4", "--log-level", "debug", "-b", "0.0.0.0:443", "--log-file", "-", "--certfile", "/app/server.crt", "--keyfile", "/app/server.key", "server:app"]
