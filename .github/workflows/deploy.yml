@@ -46,6 +46,6 @@ jobs:
         gpu-count: 1
         cpu: 2
         memory: 6.0
-        ports: 80
+        ports: 443
           
           
