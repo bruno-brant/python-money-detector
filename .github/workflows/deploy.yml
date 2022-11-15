@@ -35,10 +35,15 @@ jobs:
     - name: 'Push inference server image'
       run: |
         docker push ${{ secrets.REGISTRY_LOGIN_SERVER }}/${{ secrets.INFERENCE_SERVER_IMAGE_NAME }}:${{ github.run_number }}
-        
+
+    - name: 'Setup certs'
+      run: |
+        cat ${{ secrets.SERVER_CRT }} > server.cer
+        cat ${{ secrets.SERVER_KEY }} > server.key
+
     - name: 'Build nginx image'
       run: |
-        docker build --label "COMMIT_SHA=${{ github.sha }}" --build-arg "SERVER_CERTIFICATE=${{ secrets.SERVER_CRT }}" --build-arg "SERVER_KEY=${{ secrets.SERVER_KEY }}" -t ${{ secrets.REGISTRY_LOGIN_SERVER }}/nginx-inference:${{ github.run_number }} -f .ci/Dockerfile-nginx .ci/
+        docker build --label "COMMIT_SHA=${{ github.sha }}" -t ${{ secrets.REGISTRY_LOGIN_SERVER }}/nginx-inference:${{ github.run_number }} -f .ci/Dockerfile-nginx .ci/
         
     - name: 'Push nginx image'
       run: |
