@@ -1,0 +1,55 @@
+additional_properties: {}
+apiVersion: '2021-09-01'
+extended_location: null
+identity: null
+location: east us
+name: money-counter-inference
+properties:
+  containers:
+  - name: money-counter-inference
+    properties:
+      command: []
+      environmentVariables: []
+      image: {{ .imageInference }}
+      ports:
+      - port: 8000
+        protocol: TCP
+      resources:
+        requests:
+          cpu: 2.0
+          gpu:
+            count: 1
+            sku: K80
+          memoryInGB: 6.0
+  - name: ngix
+    properties:
+      command: []
+      environmentVariables: []
+      image: {{ .imageNginx }}
+      ports:
+      - port: 80
+        protocol: TCP
+      - port: 443
+        protocol: TCP
+      resources:
+        requests:
+          cpu: 1.0
+          memoryInGB: 1.0
+  imageRegistryCredentials:
+  - server: moneycounter.azurecr.io
+    username: {{ .registryUsername }}
+    password: {{ .registryPassword }}
+  initContainers: []
+  ipAddress:
+    ip: {{ .ipAddress }}
+    ports:
+    - port: 80
+      protocol: TCP
+    - port: 443
+      protocol: TCP
+    type: Public
+  osType: Linux
+  restartPolicy: Always
+  sku: Standard
+tags: null
+type: Microsoft.ContainerInstance/containerGroups

@@ -1,4 +1,4 @@
-name: Build and Deploy
+name: Deploy
 
 concurrency:
   group: ${{ github.ref }}
@@ -9,7 +9,7 @@ on:
     branches: [ main ]
 
 jobs:
-  build-and-deploy:
+  deploy:
     runs-on: ubuntu-latest
     steps:
     # checkout the repo
@@ -20,32 +20,43 @@ jobs:
       uses: azure/login@v1
       with:
         creds: ${{ secrets.AZURE_CREDENTIALS }}
-    
-    - name: 'Build and push image'
+        
+    - name: 'Login to registry'
       uses: azure/docker-login@v1
       with:
         login-server: ${{ secrets.REGISTRY_LOGIN_SERVER }}
         username: ${{ secrets.REGISTRY_USERNAME }}
         password: ${{ secrets.REGISTRY_PASSWORD }}
-    - run: |
-        docker build --build-arg "SERVER_CERTIFICATE=${{ secrets.SERVER_CRT }}" --build-arg "SERVER_KEY=${{ secrets.SERVER_KEY }}" --label "COMMIT_SHA=${{ github.sha }}" -t ${{ secrets.REGISTRY_LOGIN_SERVER }}/${{ secrets.INFERENCE_SERVER_IMAGE_NAME }}:${{ github.run_number }} .
+        
+    - name: 'Build inference server image'
+      run: |
+        docker build --label "COMMIT_SHA=${{ github.sha }}" -t ${{ secrets.REGISTRY_LOGIN_SERVER }}/${{ secrets.INFERENCE_SERVER_IMAGE_NAME }}:${{ github.run_number }} .
+        
+    - name: 'Push inference server image'
+      run: |
         docker push ${{ secrets.REGISTRY_LOGIN_SERVER }}/${{ secrets.INFERENCE_SERVER_IMAGE_NAME }}:${{ github.run_number }}
+        
+    - name: 'Build nginx image'
+      run: |
+        docker build --label "COMMIT_SHA=${{ github.sha }}" --build-arg "SERVER_CERTIFICATE=${{ secrets.SERVER_CRT }}" --build-arg "SERVER_KEY=${{ secrets.SERVER_KEY }}" -t ${{ secrets.REGISTRY_LOGIN_SERVER }}/nginx-inference:${{ github.run_number }} -f .ci/Dockerfile-nginx .ci/
+        
+    - name: 'Push nginx image'
+      run: |
+        docker push ${{ secrets.REGISTRY_LOGIN_SERVER }}/nginx-inference:${{ github.run_number }}
+        
+    - name: 'Render ACI manifest'
+      uses: chuhlomin/render-template@204ce622bc2fd5c787ff5ca885ff19fb577e7a41      
+      with:
+        template: .ci/container.template.yaml
+        vars: |
+          registryUsername: '${{ secrets.REGISTRY_USERNAME }}'
+          registryPassword: '${{ secrets.REGISTRY_PASSWORD }}'
+          ipAddress: '${{ secrets.IP_ADDRESS }}'
+          image: '${{ secrets.REGISTRY_LOGIN_SERVER }}/${{ secrets.INFERENCE_SERVER_IMAGE_NAME }}:${{ github.run_number }}'
+          imageNginx: '${{ secrets.REGISTRY_LOGIN_SERVER }}/nginx-inference:${{ github.run_number }}'
+          imageInference: '${{ secrets.REGISTRY_LOGIN_SERVER }}/${{ secrets.INFERENCE_SERVER_IMAGE_NAME }}:${{ github.run_number }}'
+        result_path: .ci/container.yaml
 
     - name: 'Deploy to Azure Container Instances'
-      uses: 'azure/aci-deploy@v1'
-      with:
-        resource-group: ${{ secrets.RESOURCE_GROUP }}
-        dns-name-label: ${{ secrets.DNS_NAME }}
-        image: ${{ secrets.REGISTRY_LOGIN_SERVER }}/${{ secrets.INFERENCE_SERVER_IMAGE_NAME }}:${{ github.run_number }}
-        registry-login-server: ${{ secrets.REGISTRY_LOGIN_SERVER }}
-        registry-username: ${{ secrets.REGISTRY_USERNAME }}
-        registry-password: ${{ secrets.REGISTRY_PASSWORD }}
-        name: money-counter-inference
-        location: 'east us'
-        gpu-sku: K80
-        gpu-count: 1
-        cpu: 2
-        memory: 6.0
-        ports: 443
-          
-          
+      run: |
+        az container create -g ${{ secrets.RESOURCE_GROUP }} -f .ci/container.yaml
