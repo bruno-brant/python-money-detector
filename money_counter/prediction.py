@@ -7,7 +7,7 @@ import torch
 from PIL import Image
 from torchvision import transforms
 
-from money_counter import engine, models, utils
+from money_counter import constants, engine, models, utils
 
 
 class Predictor:
@@ -19,6 +19,8 @@ class Predictor:
             self.device = utils.get_device()
 
         self._model = model.to(self.device).eval()
+
+        self.model_name = model_name
 
         self._transform = transforms.Compose(
             [transforms.ToTensor()])

@@ -29,10 +29,7 @@ jobs:
         password: ${{ secrets.REGISTRY_PASSWORD }}
 
     - name: 'Pull previous image'
-      # skip on error
       continue-on-error: true
-      env: 
-        version: $(${{ github.run_number }} - 1)
       run: docker pull ${{ secrets.REGISTRY_LOGIN_SERVER }}/${{ secrets.INFERENCE_SERVER_IMAGE_NAME }}
 
     - name: 'Build server image'
