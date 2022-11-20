@@ -112,7 +112,7 @@ def predict():
     coins = [{
         "score": float(score),
         "label": constants.CLASSES[int(label)],
-        "value": int(constants.CLASSES[int(label)]) if constants.CLASSES[int(label)] else 0,
+        "value": int(constants.CLASSES[int(label)]) * 0.01 if constants.CLASSES[int(label)] else 0,
         "boundingBox": {
             "topLeft": [int(boxes[0]), int(boxes[1])],
             "bottomRight": [int(boxes[2]), int(boxes[3])]
