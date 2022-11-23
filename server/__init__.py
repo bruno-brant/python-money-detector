@@ -66,17 +66,6 @@ def decode_data_url(data_url: str) -> Image.Image:
     return image
 
 
-def format_result(result: models.PredictedTarget, model_name):
-    """Formats the result of a prediction.
-
-    Args:
-        result (models.PredictedTarget): The result to format.
-
-    Returns:
-        str: The formatted result.
-    """
-
-
 @app.after_request
 def handle_cors(response: flask.Response) -> flask.Response:
     # if (request.method == 'OPTIONS'):
@@ -87,6 +76,7 @@ def handle_cors(response: flask.Response) -> flask.Response:
 
 
 @app.route("/api/v1/predict", methods=["POST"])
+@app.route("/v1/predict", methods=["POST"])
 def predict():
     if request.content_type == 'application/json':
         image_base64 = request.json['image']  # type: ignore
@@ -106,7 +96,7 @@ def predict():
         result = predictor.predict(image)
 
     result = cast(models.PredictedTarget, {k: cast(torch.Tensor, v).cpu().numpy().tolist()
-                                        for k, v in result.items()})
+                                           for k, v in result.items()})
 
     # The coins that were detected
     coins = [{
