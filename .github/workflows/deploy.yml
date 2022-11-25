@@ -53,10 +53,10 @@ jobs:
         registry-password: ${{ secrets.REGISTRY_PASSWORD }}
         name: money-counter-inference
         location: 'east us'
-        gpu-sku: K80
-        gpu-count: 1
-        cpu: 2
-        memory: 6.0
+        #gpu-sku: K80
+        #gpu-count: 1
+        cpu: 3
+        memory: 8.0
         ports: 443
 
     # Tag as latest

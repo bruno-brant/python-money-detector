@@ -78,12 +78,10 @@ def get_fasterrcnn_pretrained() -> Tuple[FasterRCNN, str]:
 
 def get_fasterrcnn_untrained() -> Tuple[FasterRCNN, str]:
     """
-    Constructs a Faster R-CNN model with a pre-trained backbone.
-
+    Constructs a Faster R-CNN model with an untrained backbone.
     """
-    # load a model pre-trained on COCO
-    model = torchvision.models.detection.fasterrcnn_resnet50_fpn(
-        weights=None)
+    # load a model
+    model = torchvision.models.detection.fasterrcnn_resnet50_fpn()
 
     # replace the classifier with a new one, that has
     # num_classes which is user-defined
@@ -126,7 +124,7 @@ class VersionManager:
         """
         self._model_state_dir = model_state_dir
 
-    def load_model(self, model_name: str, model: torch.nn.Module, optimizer: Optional[torch.optim.Optimizer] = None, mode: Modes = "last"):
+    def load_model(self, model_name: str, model: torch.nn.Module, optimizer: Optional[torch.optim.Optimizer] = None, mode: Modes = "last", map_location: Optional[torch.device] = None) -> Tuple[int, float]:
         """Load the model from the model_state_dir"""
         model_path = self._get_model_path(model_name, mode=mode)
 
@@ -136,9 +134,11 @@ class VersionManager:
 
         print(f'Loading model from {model_path}')
 
-        checkpoint: Checkpoint = torch.load(model_path)
+        checkpoint: Checkpoint = torch.load(model_path, map_location=map_location)
 
+        # load the model mapping to cpu
         model.load_state_dict(checkpoint['model_state_dict'])
+        model.load_state_dict(checkpoint['model_state_dict'], )
 
         if optimizer is not None:
             optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
@@ -177,7 +177,7 @@ class VersionManager:
 
         print(f'Saved model to {model_path}')
 
-    def _get_model_path(self, model_name, epoch: Optional[int] = None, mode: Modes = "last") -> str:
+    def _get_model_path(self, model_name, epoch: Optional[int] = None, mode: Modes = "last", map_location: Optional[torch.device] = None) -> str:
         """
         Format the path to the model file based on the model name and 
         the epoch.
@@ -205,7 +205,7 @@ class VersionManager:
             if mode ==  "best":
                 for file in files:
                     file_list = [f'{dir}/{file}' for file in files]
-                    losses = [(torch.load(file)['loss'], file)
+                    losses = [(torch.load(file, map_location=map_location)['loss'], file)
                                 for file in file_list]
                     file = min(zip(file_list, losses),
                                 key=lambda x: x[1])[0]

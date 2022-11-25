@@ -37,33 +37,18 @@ dictConfig({
 def initialize_predictor():
     model, model_name = models.get_fasterrcnn_untrained()
     version_manager = models.VersionManager(constants.MODEL_STATE_DIR)
-    epoch, loss = version_manager.load_model(model_name, model)
+    device = torch.device('cpu')
+    epoch, loss = version_manager.load_model(
+        model_name, model, map_location=device)
 
     print(f'Loaded model from epoch {epoch} with loss {loss}')
 
-    return prediction.Predictor(model, model_name)
+    return prediction.Predictor(model, model_name, device=device)
 
 
 predictor = initialize_predictor()
 
 app = Flask(__name__)
-
-
-def decode_data_url(data_url: str) -> Image.Image:
-    """Decode a data URL into a PIL image.
-
-    Args:
-        data_url (str): The data URL to decode.
-
-    Returns:
-        Image.Image: The decoded image.
-    """
-    # split the data URL into its components
-    data_url = data_url.split(',')[1]
-
-    # decode the image and return it
-    image = Image.open(io.BytesIO(base64.b64decode(data_url)))
-    return image
 
 
 @app.after_request
@@ -80,7 +65,6 @@ def handle_cors(response: flask.Response) -> flask.Response:
 def predict():
     if request.content_type == 'application/json':
         image_base64 = request.json['image']  # type: ignore
-        #image = decode_data_url(image_data_url)
         image_bytes = base64.b64decode(image_base64)
         image = Image.open(io.BytesIO(image_bytes))
 
