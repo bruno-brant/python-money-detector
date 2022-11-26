@@ -4,10 +4,9 @@ from typing import Dict, Literal, Optional, Tuple, TypedDict, Union
 import torch
 import torchvision
 from torch import Tensor
+from torchvision.models.detection import FasterRCNN_ResNet50_FPN_Weights
 from torchvision.models.detection.faster_rcnn import (FasterRCNN,
                                                       FastRCNNPredictor)
-
-from torchvision.models.detection import FasterRCNN_ResNet50_FPN_Weights
 
 from money_counter.constants import NUM_CLASSES
 
@@ -31,20 +30,6 @@ class Target(TypedDict):
     image_id: Tensor
     """Each image will have a unique id, which will be used during evaluation"""
 
-    # masks: Optional[IntTensor]
-    # """UInt8Tensor[N, H, W]: The segmentation masks for each one of the objects."""
-
-    # keypoints: Optional[IntTensor]
-    # """
-    # For each of the N objects, it contains the K keypoints in [x, y, visibility]
-    # format, defining the object. visibility=0 means that the keypoint is not visible.
-
-    # Note that for data augmentation, the notion of flipping a keypoint is dependent
-    # on the data representation, and you should probably adapt
-    # references/detection/transforms.py for your new keypoint representation.
-    # """
-
-
 class PredictedTarget(TypedDict):
     """
     Result of a prediction from the torchvision detection algorithms.
@@ -61,7 +46,7 @@ def get_fasterrcnn_pretrained() -> Tuple[FasterRCNN, str]:
     """
     Constructs a Faster R-CNN model with a pre-trained backbone.
     """
-    # load a model pre-trained on COCO 
+    # load a model pre-trained on COCO
     model = torchvision.models.detection.fasterrcnn_resnet50_fpn(
         weights=FasterRCNN_ResNet50_FPN_Weights.COCO_V1)
 
@@ -93,14 +78,27 @@ def get_fasterrcnn_untrained() -> Tuple[FasterRCNN, str]:
 
     return model, "fasterrcnn_resnet50_fpn"
 
+
+def get_fasterrcnn_v2_pretrained() -> Tuple[FasterRCNN, str]:
+    """
+    Constructs a Faster R-CNN model with an untrained backbone.
+    """
+    # load a model
+    model = torchvision.models.detection.fasterrcnn_resnet50_fpn_v2(
+            weights=torchvision.models.detection.FasterRCNN_ResNet50_FPN_V2_Weights.COCO_V1,
+            num_classes=NUM_CLASSES)
+
+    return model, "fasterrcnn_resnet50_fpn_v2"
+
+
 def get_model(model_name) -> torch.nn.Module:
     """Gets the model for the given model name."""
     if model_name == 'fasterrcnn_resnet50_fpn':
         return get_fasterrcnn_pretrained()[0]
-    
+
     if model_name == 'fasterrcnn_resnet50_fpn_pretrained':
         return get_fasterrcnn_pretrained()[0]
-    
+
     raise ValueError(f'Unknown model name: {model_name}')
 
 
@@ -134,7 +132,8 @@ class VersionManager:
 
         print(f'Loading model from {model_path}')
 
-        checkpoint: Checkpoint = torch.load(model_path, map_location=map_location)
+        checkpoint: Checkpoint = torch.load(
+            model_path, map_location=map_location)
 
         # load the model mapping to cpu
         model.load_state_dict(checkpoint['model_state_dict'])
@@ -202,13 +201,13 @@ class VersionManager:
                 latest = files[-1]
                 return f'{dir}/{latest}'
 
-            if mode ==  "best":
+            if mode == "best":
                 for file in files:
                     file_list = [f'{dir}/{file}' for file in files]
                     losses = [(torch.load(file, map_location=map_location)['loss'], file)
-                                for file in file_list]
+                              for file in file_list]
                     file = min(zip(file_list, losses),
-                                key=lambda x: x[1])[0]
+                               key=lambda x: x[1])[0]
                     return file
 
             return f'{self ._model_state_dir}/{model_name}/epoch_00.pth'
