@@ -7,7 +7,3 @@ NUM_CLASSES = len(CLASSES)
 
 BATCH_SIZE = 4
 """Batch size for training"""
-
-ASSETS_DIR = '../assets'
-DATASET_DIR = f'{ASSETS_DIR}/coins_dataset'
-MODEL_STATE_DIR = f'./model_state'

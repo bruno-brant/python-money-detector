@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 from typing import (Callable, Dict, Generic, Iterable, Iterator, List,
                     Optional, Tuple, TypeVar, cast)
@@ -72,9 +73,7 @@ class CoinsDataset(Dataset[DatasetItem], Generic[TTransformedImage, TTransformed
         """
         if not os.path.isfile(annotations_path):
             raise FileNotFoundError(f"File '{annotations_path}' not found.")
-        
-        self._root_dir = os.path.dirname(annotations_path) # Images are relative to the path of the annotations file
-        """Directory with the images."""
+
         self._transform = transform
         """Additional transform to be applied on the image."""
         self._transform_metadata = target_transform
@@ -86,6 +85,12 @@ class CoinsDataset(Dataset[DatasetItem], Generic[TTransformedImage, TTransformed
         with open(annotations_path) as f:
             via: v2.ViaV2SaveFileFormat = json.load(f)
 
+        default_filepath = via['_via_settings']['core']['default_filepath']
+        # Images are relative to the path of the annotations file
+        self._root_dir = os.path.join(
+            os.path.dirname(annotations_path), default_filepath)
+
+        """Directory with the images."""
         # Get the metadata for the images
         self._images_metadata = [
             v for _, v in via['_via_img_metadata'].items()]
@@ -138,7 +143,7 @@ class CoinsDatasetOnlyAnnotated(CoinsDataset[TTransformedImage, TTransformedTarg
         :param root_dir: directory with all the images.
         :param transform: optional transform to be applied on a sample.
         """
-        super().__init__(annotations_path, 
+        super().__init__(annotations_path,
                          transform=transform, target_transform=transform_target)
 
         # Remove the images that don't have any annotations
@@ -217,38 +222,34 @@ def collate_into_lists(items: List[DatasetItem]) -> Tuple[List[Image.Image], Lis
 TDL = TypeVar("TDL")
 
 default_transform = transforms.Compose([
+    ResizeImage(),
     transforms.ToTensor(),
-    transforms.ConvertImageDtype(torch.float),
-    ResizeImage()
+    transforms.ConvertImageDtype(torch.float)
 ])
 
 
-def get_data_loaders(dataset_path: str, transform: ImageTransform = default_transform, batch_size=3):
+def get_data_loaders(dataset_path: str, transform: ImageTransform = default_transform, batch_size=3, *, test_percentage=0.2):
     """Get train and test data loaders."""
-
-    json_path = dataset_path
-
     # use our dataset and defined transformations
-    source = CoinsDatasetOnlyAnnotated(
-        dataset_path, transform=transform)
+    source = CoinsDatasetOnlyAnnotated(dataset_path, transform=transform)
     #dataset_test = CoinsDatasetOnlyAnnotated(json_path, coins_imgs_dir, transform=transform)
 
     # split the dataset in train and test set
     torch.manual_seed(1)
     indices = torch.randperm(len(source)).tolist()
 
-    test_percentage = 0.2
     test_size = int(test_percentage * len(source))
 
     dataset_train = data.Subset(source, indices[:-test_size])
     dataset_test = data.Subset(source, indices[-test_size:])
 
-    print(f'Train dataset size: {len(dataset_train)}')
-    print(f'Test dataset size: {len(dataset_test)}')
+    logging.info(f'Train dataset size: {len(dataset_train)}')
+    logging.info(f'Test dataset size: {len(dataset_test)}')
 
     # define training and validation data loaders
     data_loader_train = DataLoader(
         dataset_train, batch_size=batch_size, shuffle=True, collate_fn=collate_into_lists)
+
     data_loader_test = DataLoader(
         dataset_test, batch_size=batch_size, shuffle=False, collate_fn=collate_into_lists)
 
