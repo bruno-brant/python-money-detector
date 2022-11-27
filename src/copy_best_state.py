@@ -6,6 +6,9 @@ from money_counter import constants
 
 print(os.getcwd())
 
+MODEL_FINAL_DIR = os.environ['MODEL_FINAL_DIR']
+MODEL_STATE_DIR = os.environ['MODEL_STATE_DIR']
+
 
 def copy_best(folder: str):
     best: dict = {'loss': float('inf')}
@@ -26,9 +29,9 @@ def copy_best(folder: str):
 
     if best['loss'] != float('inf'):
         print(f'Best model for {folder}:', best['path'])
-        os.makedirs(constants.MODEL_FINAL_DIR, exist_ok=True)
-        torch.save(best, os.path.join(constants.MODEL_FINAL_DIR,
+        os.makedirs(MODEL_FINAL_DIR, exist_ok=True)
+        torch.save(best, os.path.join(MODEL_FINAL_DIR,
                    os.path.basename(folder) + '.pth'))
 
 
-copy_best(constants.MODEL_STATE_DIR)
+copy_best(MODEL_STATE_DIR)
