@@ -4,10 +4,13 @@ import os
 import pickle
 import time
 from collections import defaultdict, deque
+from logging import getLogger
 from typing import Any, Dict, Iterable, TypeVar
 
 import torch
 import torch.distributed as dist
+
+logging = getLogger(__name__)
 
 
 class SmoothedValue(object):
@@ -313,7 +316,7 @@ def init_distributed_mode(args):
         args.rank = int(os.environ['SLURM_PROCID'])
         args.gpu = args.rank % torch.cuda.device_count()
     else:
-        print('Not using distributed mode')
+        logging.info('Not using distributed mode')
         args.distributed = False
         return
 
@@ -321,11 +324,11 @@ def init_distributed_mode(args):
 
     torch.cuda.set_device(args.gpu)
     args.dist_backend = 'nccl'
-    print('| distributed init (rank {}): {}'.format(
+    logging.info('| distributed init (rank {}): {}'.format(
         args.rank, args.dist_url), flush=True)
-    torch.distributed.init_process_group(backend=args.dist_backend, init_method=args.dist_url,
-                                         world_size=args.world_size, rank=args.rank)
-    torch.distributed.barrier()
+    dist.init_process_group(backend=args.dist_backend, init_method=args.dist_url,
+                            world_size=args.world_size, rank=args.rank)
+    dist.barrier()
     setup_for_distributed(args.rank == 0)
 
 
@@ -378,6 +381,7 @@ class Timer:
     def __exit__(self, *args):
         self.stop()
         return self
+
 
 def get_device() -> torch.device:
     return torch.device("cuda" if torch.cuda.is_available() else "cpu")

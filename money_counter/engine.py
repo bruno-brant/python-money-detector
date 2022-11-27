@@ -1,6 +1,7 @@
 import math
 import sys
-from typing import List
+from logging import getLogger
+from typing import List, cast
 
 import torch
 import torchvision
@@ -11,6 +12,8 @@ from .coco_eval import CocoEvaluator
 from .coco_utils import get_coco_api_from_dataset
 from .models import PredictedTarget
 from .utils import MetricLogger, SmoothedValue, Timer, reduce_dict
+
+logging = getLogger(__name__)
 
 
 def train_one_epoch(
@@ -42,12 +45,13 @@ def train_one_epoch(
         # reduce losses over all GPUs for logging purposes
         loss_dict_reduced = reduce_dict(loss_dict)
         losses_reduced = sum(loss for loss in loss_dict_reduced.values())
+        losses_reduced = cast(torch.Tensor, losses_reduced)
 
         loss_value = losses_reduced.item()
 
         if not math.isfinite(loss_value):
-            print(f"Loss is {loss_value}, stopping training")
-            print(loss_dict_reduced)
+            logging.error(f"Loss is {loss_value}, stopping training")
+            logging.error(loss_dict_reduced)
             sys.exit(1)
 
         optimizer.zero_grad()
@@ -119,7 +123,7 @@ def evaluate(model: torch.nn.Module, data_loader: DataLoader, device: torch.devi
     # gather the stats from all processes
     metric_logger.synchronize_between_processes()
 
-    print("Averaged stats:", metric_logger)
+    logging.info("Averaged stats:", metric_logger)
 
     coco_evaluator.synchronize_between_processes()
 

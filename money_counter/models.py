@@ -1,5 +1,6 @@
 import os
-from typing import Dict, Literal, Optional, Tuple, TypedDict, Union
+from logging import getLogger
+from typing import Dict, List, Literal, Optional, Tuple, TypedDict, Union
 
 import torch
 import torchvision
@@ -9,6 +10,8 @@ from torchvision.models.detection.faster_rcnn import (FasterRCNN,
                                                       FastRCNNPredictor)
 
 from money_counter.constants import NUM_CLASSES
+
+logging = getLogger(__name__)
 
 
 class Target(TypedDict):
@@ -29,6 +32,7 @@ class Target(TypedDict):
 
     image_id: Tensor
     """Each image will have a unique id, which will be used during evaluation"""
+
 
 class PredictedTarget(TypedDict):
     """
@@ -116,7 +120,7 @@ Checkpoint = TypedDict('Checkpoint', {
     'loss': float
 })
 
-Modes = Union[Literal["last"], Literal["best"]]
+Modes = Union[Literal["last"], Literal["best"], Literal["epoch"]]
 
 
 class VersionManager:
@@ -129,15 +133,25 @@ class VersionManager:
         """
         self._model_state_dir = model_state_dir
 
-    def load_model(self, model_name: str, model: torch.nn.Module, optimizer: Optional[torch.optim.Optimizer] = None, mode: Modes = "last", map_location: Optional[torch.device] = None) -> Tuple[int, float]:
-        """Load the model from the model_state_dir"""
-        model_path = self._get_model_path(model_name, mode=mode)
+    def load_model(self, model_name: str, model: torch.nn.Module,
+                   optimizer: Optional[torch.optim.Optimizer] = None, mode: Modes = "last",
+                   map_location: Optional[torch.device] = None, *, epoch: Optional[int] = None) -> Tuple[int, float]:
+        """
+        Load the model from the model_state_dir.
+        :param model_name: The name of the model.
+        :param model: The model to load the state into.
+        :param optimizer: The optimizer to load the state into.
+        :param mode: The mode to load the model from. Can be "last", "best" or "epoch".
+        :param map_location: The map location to load the model to.
+        :param epoch: The epoch to load the model from. Only used when mode is "epoch".
+        """
+        model_path = self._get_model_path(model_name, mode=mode, epoch=epoch)
 
         if not os.path.exists(model_path):
-            print(f'Could not find model at {model_path}')
+            logging.error(f'Could not find model at {model_path}')
             return 0, 0
 
-        print(f'Loading model from {model_path}')
+        logging.info(f'Loading model from {model_path}')
 
         checkpoint: Checkpoint = torch.load(
             model_path, map_location=map_location)
@@ -152,7 +166,7 @@ class VersionManager:
         epoch = checkpoint['epoch']
         loss = checkpoint['loss']
 
-        print(f'Loaded model from {model_path}')
+        logging.info(f'Loaded model from {model_path}')
 
         return epoch, loss
 
@@ -161,10 +175,10 @@ class VersionManager:
         """Save the model to the model_state_dir"""
         model_path = self._get_model_path(model_name, epoch)
 
-        print(f'Saving model to {model_path}')
+        logging.debug(f'Saving model to {model_path}')
 
         if os.path.exists(model_path):
-            print(f'Backuping model file at epoch "{epoch}"...')
+            logging.debug(f'Backuping model file at epoch "{epoch}"...')
 
             if os.path.exists(f'{model_path}.bak'):
                 os.remove(f'{model_path}.bak')
@@ -181,9 +195,41 @@ class VersionManager:
             'loss': loss,
         }, model_path)
 
-        print(f'Saved model to {model_path}')
+        logging.info(f'Saved model to {model_path}')
 
-    def _get_model_path(self, model_name, epoch: Optional[int] = None, mode: Modes = "last", map_location: Optional[torch.device] = None) -> str:
+    def get_epochs(self, model_name: str) -> List[int]:
+        """
+        List the epochs that have been saved for the given model.
+        :param model_name: 
+            The name of the model.
+        :return: 
+            A list of epochs.
+        """
+        paths = self._get_model_paths(model_name)
+
+        # get the epoch from the file name
+        epochs = [int(path.split('_')[-1].removesuffix('.pth'))
+                  for path in paths]
+
+        return epochs
+
+    def _get_model_paths(self, model_name: str) -> List[str]:
+        """Gets the model paths for the given model name."""
+        dir = f'{self._model_state_dir}/{model_name}'
+
+        if not os.path.exists(dir):
+            logging.warning(f'Could not find model directory at {dir}')
+            return []
+
+        # get all the files in the directory
+        files = [file for file in os.listdir(dir) if file.endswith('.pth')]
+        files = sorted(files)
+
+        paths = [f'{dir}/{file}' for file in files]
+
+        return paths
+
+    def _get_model_path(self, model_name: str, epoch: Optional[int] = None, mode: Modes = "last", map_location: Optional[torch.device] = None) -> str:
         """
         Format the path to the model file based on the model name and 
         the epoch.
@@ -193,6 +239,13 @@ class VersionManager:
         :param epoch: 
             The epoch of the model. Optional. If not provided,
             the latest model will be returned.
+        :param mode:
+            The mode to use when loading the model.
+            "last" will load the last saved model.
+            "best" will load the model with the lowest loss.
+
+        :return:
+            The path to the model file.
         """
         dir = f'{self._model_state_dir}/{model_name}'
 
@@ -200,22 +253,17 @@ class VersionManager:
             return f'{self._model_state_dir}/{model_name}/epoch_{epoch:03}.pth'
 
         if os.path.exists(dir):
-            files = [file for file in os.listdir(dir) if file.endswith('.pth')]
-            # , key=lambda x: int(x.split('_')[1].split('.')[0]))
-            files = sorted(files)
+            files = self._get_model_paths(model_name)
 
             if mode == "last":
-                latest = files[-1]
-                return f'{dir}/{latest}'
+                return files[-1]
 
             if mode == "best":
-                for file in files:
-                    file_list = [f'{dir}/{file}' for file in files]
-                    losses = [(torch.load(file, map_location=map_location)['loss'], file)
-                              for file in file_list]
-                    file = min(zip(file_list, losses),
-                               key=lambda x: x[1])[0]
-                    return file
+                losses = [(torch.load(file, map_location=map_location)['loss'], file)
+                          for file in files]
+                file = min(zip(files, losses),
+                           key=lambda x: x[1])[0]
+                return file
 
             return f'{self ._model_state_dir}/{model_name}/epoch_00.pth'
 

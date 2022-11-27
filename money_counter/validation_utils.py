@@ -1,4 +1,4 @@
-from typing import Dict, Literal, Optional, Union
+from typing import Dict, List, Literal, Optional, Tuple, Union, cast
 
 import torch
 
@@ -11,6 +11,7 @@ from money_counter.models import PredictedTarget
 
 Alignment = Union[Literal['top'], Literal['bottom'], Literal['center']]
 
+TensorDict = List[Tuple[str, torch.Tensor]]
 
 def render_boxes(ax: Axes, box_: torch.Tensor, label: str, color: str, position: Alignment):
     box = box_.numpy().astype(int)
@@ -37,12 +38,12 @@ def render_image_and_boxes(image: torch.Tensor, label_map: Dict[int, str],
 
     image = image.cpu()
 
-    if target is not None:
-        target = {k: v.cpu() for k, v in target.items()
+    if target:
+        target = {k: v.cpu() for k, v in cast(TensorDict, target.items())
                   if k != 'image_id'}  # type: ignore
 
     if predicted:
-        predicted = {k: v.cpu() for k, v in predicted.items()}  # type: ignore
+        predicted = {k: v.cpu() for k, v in cast(TensorDict, predicted.items())}  # type: ignore
 
     _, ax = plt.subplots(1, 1, figsize=(16, 8))
     ax.imshow(image.permute(1, 2, 0))

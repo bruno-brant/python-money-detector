@@ -1,3 +1,4 @@
+from logging import getLogger
 from typing import Optional
 
 import torch
@@ -6,9 +7,12 @@ from torch.utils.data import DataLoader
 
 from money_counter import engine, models
 
+logging = getLogger(__name__)
+
 
 def train(
-        model: nn.Module, model_name: str, data_loader_train: DataLoader, data_loader_test: DataLoader, *,
+        model: nn.Module, model_name: str, data_loader_train: DataLoader, data_loader_test: DataLoader,
+        *,
         num_epochs: int = 10, device: Optional[torch.device] = None,
         version_manager: Optional[models.VersionManager] = None, state_dir: Optional[str],
         evaluate: bool = False, print_frequency: int = 10) -> None:
@@ -30,7 +34,7 @@ def train(
         device = torch.device(
             'cuda') if torch.cuda.is_available() else torch.device('cpu')
 
-        print(f'Using device: {device}')
+        logging.debug(f'Using device: {device}')
 
     if (version_manager is None and state_dir is None) or (version_manager is not None and state_dir is not None):
         raise Exception(
@@ -55,7 +59,7 @@ def train(
     # load the model if possible
     epoch, loss = version_manager.load_model(model_name, model, optimizer)
 
-    print(f"Starting training from epoch '{epoch}' with loss = '{loss}'.")
+    logging.info(f"Starting training from epoch '{epoch}' with loss = '{loss}'.")
 
     while epoch < num_epochs:
         # train for one epoch, printing every 10 iterations
@@ -73,4 +77,4 @@ def train(
 
         epoch += 1
 
-    print("That's it!")
+    logging.info("That's it!")
