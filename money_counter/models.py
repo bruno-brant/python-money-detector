@@ -85,8 +85,15 @@ def get_fasterrcnn_v2_pretrained() -> Tuple[FasterRCNN, str]:
     """
     # load a model
     model = torchvision.models.detection.fasterrcnn_resnet50_fpn_v2(
-            weights=torchvision.models.detection.FasterRCNN_ResNet50_FPN_V2_Weights.COCO_V1,
-            num_classes=NUM_CLASSES)
+        weights=torchvision.models.detection.FasterRCNN_ResNet50_FPN_V2_Weights.COCO_V1)
+
+    # replace the classifier with a new one, that has
+    # num_classes which is user-defined
+    # get number of input features for the classifier
+    in_features = model.roi_heads.box_predictor.cls_score.in_features  # type: ignore
+    # replace the pre-trained head with a new one
+    model.roi_heads.box_predictor = FastRCNNPredictor(
+        in_features, NUM_CLASSES + 1)
 
     return model, "fasterrcnn_resnet50_fpn_v2"
 
