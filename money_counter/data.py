@@ -232,7 +232,6 @@ def get_data_loaders(dataset_path: str, transform: ImageTransform = default_tran
     """Get train and test data loaders."""
     # use our dataset and defined transformations
     source = CoinsDatasetOnlyAnnotated(dataset_path, transform=transform)
-    #dataset_test = CoinsDatasetOnlyAnnotated(json_path, coins_imgs_dir, transform=transform)
 
     # split the dataset in train and test set
     torch.manual_seed(1)

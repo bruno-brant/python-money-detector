@@ -1,3 +1,4 @@
+from torchvision.models.detection import FasterRCNN_ResNet50_FPN_V2_Weights
 import os
 from logging import getLogger
 from typing import Dict, List, Literal, Optional, Tuple, TypedDict, Union
@@ -46,13 +47,13 @@ class PredictedTarget(TypedDict):
     """the label for each bounding box. 0 always represents the background class."""
 
 
-def get_fasterrcnn_pretrained() -> Tuple[FasterRCNN, str]:
+def _get_fasterrcnn(weights: Optional[FasterRCNN_ResNet50_FPN_Weights]) -> FasterRCNN:
     """
     Constructs a Faster R-CNN model with a pre-trained backbone.
     """
     # load a model pre-trained on COCO
     model = torchvision.models.detection.fasterrcnn_resnet50_fpn(
-        weights=FasterRCNN_ResNet50_FPN_Weights.COCO_V1)
+        weights=weights)
 
     # replace the classifier with a new one, that has
     # num_classes which is user-defined
@@ -62,7 +63,17 @@ def get_fasterrcnn_pretrained() -> Tuple[FasterRCNN, str]:
     model.roi_heads.box_predictor = FastRCNNPredictor(
         in_features, NUM_CLASSES + 1)
 
-    return model, "fasterrcnn_resnet50_fpn"
+    return model
+
+
+def get_fasterrcnn_pretrained() -> Tuple[FasterRCNN, str]:
+    """
+    Constructs a Faster R-CNN model with a pre-trained backbone.
+    """
+    # load a model pre-trained on COCO
+    model = _get_fasterrcnn(FasterRCNN_ResNet50_FPN_Weights.COCO_V1)
+
+    return model, "fasterrcnn_resnet50_fpn-pretrained"
 
 
 def get_fasterrcnn_untrained() -> Tuple[FasterRCNN, str]:
@@ -70,7 +81,20 @@ def get_fasterrcnn_untrained() -> Tuple[FasterRCNN, str]:
     Constructs a Faster R-CNN model with an untrained backbone.
     """
     # load a model
-    model = torchvision.models.detection.fasterrcnn_resnet50_fpn()
+    model = _get_fasterrcnn(weights=None)
+
+    return model, "fasterrcnn_resnet50_fpn-untrained"
+
+
+def _get_fasterrcnn_v2(weights: Optional[FasterRCNN_ResNet50_FPN_V2_Weights]) -> FasterRCNN:
+    """
+    Constructs a Faster R-CNN model with an untrained backbone.
+    :param weights: The weights to use for the model.
+    :return: The model.
+    """
+    # load a model
+    model = torchvision.models.detection.fasterrcnn_resnet50_fpn_v2(
+        weights=weights)
 
     # replace the classifier with a new one, that has
     # num_classes which is user-defined
@@ -80,37 +104,26 @@ def get_fasterrcnn_untrained() -> Tuple[FasterRCNN, str]:
     model.roi_heads.box_predictor = FastRCNNPredictor(
         in_features, NUM_CLASSES + 1)
 
-    return model, "fasterrcnn_resnet50_fpn"
+    return model
 
 
 def get_fasterrcnn_v2_pretrained() -> Tuple[FasterRCNN, str]:
     """
     Constructs a Faster R-CNN model with an untrained backbone.
     """
-    # load a model
-    model = torchvision.models.detection.fasterrcnn_resnet50_fpn_v2(
-        weights=torchvision.models.detection.FasterRCNN_ResNet50_FPN_V2_Weights.COCO_V1)
+    model = _get_fasterrcnn_v2(
+        torchvision.models.detection.FasterRCNN_ResNet50_FPN_V2_Weights.COCO_V1)
 
-    # replace the classifier with a new one, that has
-    # num_classes which is user-defined
-    # get number of input features for the classifier
-    in_features = model.roi_heads.box_predictor.cls_score.in_features  # type: ignore
-    # replace the pre-trained head with a new one
-    model.roi_heads.box_predictor = FastRCNNPredictor(
-        in_features, NUM_CLASSES + 1)
-
-    return model, "fasterrcnn_resnet50_fpn_v2"
+    return model, "fasterrcnn_resnet50_fpn_v2-pretrained"
 
 
-def get_model(model_name) -> torch.nn.Module:
-    """Gets the model for the given model name."""
-    if model_name == 'fasterrcnn_resnet50_fpn':
-        return get_fasterrcnn_pretrained()[0]
+def get_fasterrcnn_v2_untrained() -> Tuple[FasterRCNN, str]:
+    """
+    Constructs a Faster R-CNN model with an untrained backbone.
+    """
+    model = _get_fasterrcnn_v2(weights=None)
 
-    if model_name == 'fasterrcnn_resnet50_fpn_pretrained':
-        return get_fasterrcnn_pretrained()[0]
-
-    raise ValueError(f'Unknown model name: {model_name}')
+    return model, "fasterrcnn_resnet50_fpn_v2-untrained"
 
 
 Checkpoint = TypedDict('Checkpoint', {
@@ -148,7 +161,8 @@ class VersionManager:
         model_path = self._get_model_path(model_name, mode=mode, epoch=epoch)
 
         if not os.path.exists(model_path):
-            logging.error(f'Could not find model at {model_path}')
+            logging.warning(
+                f'Could not find model for name "{model_name}", epoch "{epoch}" and mode "{mode}".')
             return 0, 0
 
         logging.info(f'Loading model from {model_path}')
@@ -197,23 +211,23 @@ class VersionManager:
 
         logging.info(f'Saved model to {model_path}')
 
-    def get_epochs(self, model_name: str) -> List[int]:
+    def get_epochs(self, model_name: str) -> List[Tuple[int, str]]:
         """
         List the epochs that have been saved for the given model.
         :param model_name: 
             The name of the model.
         :return: 
-            A list of epochs.
+            A list of tuples with the epoch number and its path.
         """
-        paths = self._get_model_paths(model_name)
+        paths = self.get_state_paths(model_name)
 
         # get the epoch from the file name
         epochs = [int(path.split('_')[-1].removesuffix('.pth'))
                   for path in paths]
 
-        return epochs
+        return list(zip(epochs, paths))
 
-    def _get_model_paths(self, model_name: str) -> List[str]:
+    def get_state_paths(self, model_name: str) -> List[str]:
         """Gets the model paths for the given model name."""
         dir = f'{self._model_state_dir}/{model_name}'
 
@@ -253,7 +267,7 @@ class VersionManager:
             return f'{self._model_state_dir}/{model_name}/epoch_{epoch:03}.pth'
 
         if os.path.exists(dir):
-            files = self._get_model_paths(model_name)
+            files = self.get_state_paths(model_name)
 
             if mode == "last":
                 return files[-1]
