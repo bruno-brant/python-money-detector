@@ -7,4 +7,4 @@ model, model_name = models.get_fasterrcnn_v2_untrained()
 
 
 if __name__ == '__main__':
-    train_model(model, model_name)
+    train_model(model, model_name, batch_size=2)
