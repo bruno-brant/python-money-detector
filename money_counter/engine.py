@@ -17,12 +17,17 @@ logging = getLogger(__name__)
 
 
 def train_one_epoch(
-        model: torch.nn.Module, optimizer: torch.optim.Optimizer, data_loader: DataLoader,
-        device: torch.device, epoch: int, print_freq: int, scaler=None):
+    model: torch.nn.Module,
+	optimizer: torch.optim.Optimizer,
+	data_loader: DataLoader,
+    device: torch.device,
+	epoch: int,
+	print_freq: int,
+	scaler=None):
     model.train()
     metric_logger = MetricLogger(delimiter="  ")
     metric_logger.add_meter("lr", SmoothedValue(
-        window_size=1, fmt="{value:.6f}"))
+            window_size=1, fmt="{value:.6f}"))
     header = f"Epoch: [{epoch}]"
 
     lr_scheduler = None
@@ -55,6 +60,7 @@ def train_one_epoch(
             sys.exit(1)
 
         optimizer.zero_grad()
+        
         if scaler is not None:
             scaler.scale(losses).backward()
             scaler.step(optimizer)
@@ -85,7 +91,10 @@ def _get_iou_types(model):
 
 
 @torch.inference_mode()
-def evaluate(model: torch.nn.Module, data_loader: DataLoader, device: torch.device):
+def evaluate(
+	model: torch.nn.Module,
+	data_loader: DataLoader,
+	device: torch.device):
     n_threads = torch.get_num_threads()
     # FIXME remove this and make paste_masks_in_image run on the GPU
     torch.set_num_threads(1)

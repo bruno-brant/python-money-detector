@@ -157,13 +157,14 @@ class VersionManager:
         :param mode: The mode to load the model from. Can be "last", "best" or "epoch".
         :param map_location: The map location to load the model to.
         :param epoch: The epoch to load the model from. Only used when mode is "epoch".
+        :return: The epoch and loss of the loaded model.
         """
         model_path = self._get_model_path(model_name, mode=mode, epoch=epoch)
 
         if not os.path.exists(model_path):
             logging.warning(
-                f'Could not find model for name "{model_name}", epoch "{epoch}" and mode "{mode}".')
-            return 0, 0
+                f'Could not find checkpoint for model "{model_name}" with epoch "{epoch}" and mode "{mode}".')
+            return 0, float('inf')
 
         logging.info(f'Loading model from {model_path}')
 
