@@ -36,15 +36,25 @@ def _no_op_transform(x): return x
 label_map = {label: i for i, label in enumerate(CLASSES)}
 
 
-class ResizeImage:
-    """Resize the image to either 3000x4000 or 4000x3000 depending on the aspect ratio."""
+class NormalizeImageSize:
+    """
+    Normalize an image to a fixed size.
+
+    Some images where captured with a small difference in size. This transform
+    normalizes the images to a fixed size, by transforming the image to either
+    4000x3000 or 3000x4000, depending on the aspect ratio.
+    """
+
+    def __init__(self, width: int = 4000, height: int = 3000):
+        self._height = height
+        self._width = width
 
     def __call__(self, image: Image.Image) -> Image.Image:
         size = image.size
         if size[0] > size[1]:
-            image = image.resize((4000, 3000))
+            image = image.resize((self._width, self._height))
         else:
-            image = image.resize((3000, 4000))
+            image = image.resize((self._height, self._width))
 
         return image
 
@@ -222,7 +232,7 @@ def collate_into_lists(items: List[DatasetItem]) -> Tuple[List[Image.Image], Lis
 TDL = TypeVar("TDL")
 
 default_transform = transforms.Compose([
-    ResizeImage(),
+    NormalizeImageSize(),
     transforms.ToTensor(),
     transforms.ConvertImageDtype(torch.float)
 ])
