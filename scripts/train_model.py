@@ -1,3 +1,6 @@
+from typing import Optional
+from torchvision import transforms
+import torch
 import argparse
 import os
 from logging import getLogger, basicConfig, INFO
@@ -22,7 +25,17 @@ parser.add_argument('--model-state-dir', type=str,
                     default=MODEL_STATE_DIR, dest='model_state_dir')
 
 
-def train_model(model, model_name):
+transform = transforms.Compose([
+    data.NormalizeImageSize(4000 // 8, 3000 // 8),
+    # transforms.RandomRotation(90),
+    # transforms.GaussianBlur(5),
+    transforms.AutoAugment(),
+    transforms.ToTensor(),
+    transforms.ConvertImageDtype(torch.float)
+])
+
+
+def train_model(model, model_name, *, batch_size: int = 3):
     """
     Train a model on the coins dataset.
     :param model: The model to train.
@@ -34,7 +47,7 @@ def train_model(model, model_name):
 
     # Get the data
     data_loader_train, data_loader_test = data.get_data_loaders(
-        args.dataset_path)
+        args.dataset_path, transform=transform, batch_size=batch_size)
 
     # Train the model
     training.train(model, model_name, data_loader_train, data_loader_test,
