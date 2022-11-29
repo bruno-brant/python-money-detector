@@ -6,6 +6,7 @@ import torch.nn as nn
 from torch.utils.data import DataLoader
 
 from money_counter import engine, models
+from money_counter.utils import get_device
 
 logging = getLogger(__name__)
 
@@ -31,8 +32,7 @@ def train(
     """
 
     if device is None:
-        device = torch.device(
-            'cuda') if torch.cuda.is_available() else torch.device('cpu')
+        device = get_device()
 
         logging.debug(f'Using device: {device}')
 
@@ -48,16 +48,22 @@ def train(
 
     # construct an optimizer
     params = [p for p in model.parameters() if p.requires_grad]
-    optimizer = torch.optim.SGD(params, lr=0.005,
-                                momentum=0.9, weight_decay=0.0005)
 
+    # TODO: Optimizer should be configurable    
+    optimizer = torch.optim.SGD(params, lr=0.001, #lr=0.005,
+                                momentum=0.9, nesterov=True) #weight_decay=0.0005)
+
+    # TODO: Scheduler should be configurable
     # and a learning rate scheduler
-    lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer,
-                                                   step_size=3,
-                                                   gamma=0.1)
+    lr_scheduler = None
+    #lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer,
+    #                                               step_size=3,
+    #                                               gamma=0.1)
 
     # load the model if possible
     epoch, loss = version_manager.load_model(model_name, model, optimizer)
+
+    epoch += 1
 
     logging.info(f"Starting training from epoch '{epoch}' with loss = '{loss}'.")
 
@@ -66,7 +72,8 @@ def train(
         metric_logger = engine.train_one_epoch(model, optimizer, data_loader_train,
                                                device, epoch, print_freq=print_frequency)
         # update the learning rate
-        lr_scheduler.step()
+        if lr_scheduler is not None:
+            lr_scheduler.step()
 
         loss = metric_logger.meters['loss'].global_avg
 

@@ -7,7 +7,7 @@ dir_path = os.path.dirname(os.path.realpath(__file__))
 
 
 def test_dataloader():
-    ds = data.CoinsDataset(
+    ds = data.ViaDataset(
         f'{dir_path}\\..\\..\\assets\\coins_dataset\\TCC_MBA_Coins.json', f'{dir_path}\\..\\..\\assets\\coins_dataset\\images')
     loader = data.CoinsDataLoader(ds, 2, shuffle=False)
 
@@ -23,7 +23,7 @@ def test_dataloader():
 
 
 def test_bboxes_inside_image():
-    ds = data.CoinsDataset(
+    ds = data.ViaDataset(
         f'{dir_path}\\..\\..\\assets\\coins_dataset\\TCC_MBA_Coins.json', f'{dir_path}\\..\\..\\assets\\coins_dataset\\images')
     loader = data.CoinsDataLoader(ds, 10, shuffle=False)
 

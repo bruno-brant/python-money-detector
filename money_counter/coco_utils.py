@@ -13,8 +13,6 @@ from pycocotools.coco import COCO
 #from .transforms import Compose
 
 
-
-
 class FilterAndRemapCocoCategories(object):
     def __init__(self, categories, remap=True):
         self.categories = categories
@@ -253,3 +251,13 @@ def get_coco(root, image_set, transforms, mode='instances'):
 
 def get_coco_kp(root, image_set, transforms):
     return get_coco(root, image_set, transforms, mode="person_keypoints")
+
+
+def _flip_coco_person_keypoints(kps, width):
+    flip_inds = [0, 2, 1, 4, 3, 6, 5, 8, 7, 10, 9, 12, 11, 14, 13, 16, 15]
+    flipped_data = kps[:, flip_inds]
+    flipped_data[..., 0] = width - flipped_data[..., 0]
+    # Maintain COCO convention that if visibility == 0, then x, y = 0
+    inds = flipped_data[..., 2] == 0
+    flipped_data[inds] = 0
+    return flipped_data

@@ -25,13 +25,13 @@ parser.add_argument('--model-state-dir', type=str,
                     default=MODEL_STATE_DIR, dest='model_state_dir')
 
 
-transform = transforms.Compose([
+transform = data.ComposeViaTransform([
     data.NormalizeImageSize(4000 // 8, 3000 // 8),
     # transforms.RandomRotation(90),
     # transforms.GaussianBlur(5),
-    transforms.AutoAugment(),
-    transforms.ToTensor(),
-    transforms.ConvertImageDtype(torch.float)
+    data.to_via_transform(transforms.AutoAugment()),
+    data.to_via_transform(transforms.ToTensor()),
+    data.to_via_transform(transforms.ConvertImageDtype(torch.float)),
 ])
 
 
@@ -47,7 +47,7 @@ def train_model(model, model_name, *, batch_size: int = 3):
 
     # Get the data
     data_loader_train, data_loader_test = data.get_data_loaders(
-        args.dataset_path, transform=transform, batch_size=batch_size)
+        args.dataset_path, train_transform=transform, batch_size=batch_size)
 
     # Train the model
     training.train(model, model_name, data_loader_train, data_loader_test,

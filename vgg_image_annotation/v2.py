@@ -99,7 +99,7 @@ class Settings(TypedDict):
 
 
 ViaV2SaveFileFormat = TypedDict('ViaV2SaveFileFormat', {
-    '_via_settings': Dict[str, str],
+    '_via_settings': Settings,
     '_via_img_metadata': Dict[str, ImageMetadata],
     '_via_data_format_version': str
 })

@@ -1,4 +1,8 @@
-from typing import Dict, List, Literal, Optional, Tuple, Union, cast
+from typing import SupportsIndex, overload
+import typing
+from PIL import Image, ImageDraw, ImageFont
+from torchvision.transforms import ToTensor, ToPILImage
+from typing import Iterable, List, Literal, Optional, Tuple, TypeGuard, Union, cast
 
 import torch
 
@@ -13,47 +17,108 @@ Alignment = Union[Literal['top'], Literal['bottom'], Literal['center']]
 
 TensorDict = List[Tuple[str, torch.Tensor]]
 
-def render_boxes(ax: Axes, box_: torch.Tensor, label: str, color: str, position: Alignment):
-    box = box_.numpy().astype(int)
 
-    # render the box on the image
-    rect = patches.Rectangle([box[0], box[1]], box[2] - box[0],
-                             box[3] - box[1], linewidth=1, edgecolor=color, facecolor='none')
+class LabelGetter(typing.Protocol):
+    """Interface for getting the label corresponding to a number"""
 
-    ax.add_patch(rect)
-
-    # Write value on the box
-    if position == 'top':
-        ax.text(box[0], box[1], label, color=color, fontsize=12)
-    if position == 'bottom':
-        ax.text(box[0], box[3], label, color=color, fontsize=12)
-    if position ==  'center':
-        ax.text((box[0] + box[2]) / 2, (box[1] + box[3]) /
-                2, label, color=color, fontsize=12)
+    def __getitem__(self, __i: SupportsIndex) -> str:
+        """Gets the corresponding label for the given index"""
+        ...
 
 
-def render_image_and_boxes(image: torch.Tensor, label_map: Dict[int, str],
-                           target: Optional[Target] = None, predicted: Optional[PredictedTarget] = None,
-                           min_score: float = 0.5):
+def _draw_bounding_box(draw: ImageDraw.ImageDraw, box: Tuple[int, int, int, int], text: str, outline: str, fill: str):
+    # The rect that is the bounding box
+    draw.rectangle(tuple(box), outline=outline, fill=fill)
 
-    image = image.cpu()
+    x0, y0, x1, y1 = box
 
-    if target:
-        target = {k: v.cpu() for k, v in cast(TensorDict, target.items())
-                  if k != 'image_id'}  # type: ignore
+    # Make font proportional to box size
+    font_size = int(((x1 - x0) / 5) * 2.5)
+    font = ImageFont.truetype("arial.ttf", font_size)
 
-    if predicted:
-        predicted = {k: v.cpu() for k, v in cast(TensorDict, predicted.items())}  # type: ignore
+    font_bbox = font.getbbox(text)
 
-    _, ax = plt.subplots(1, 1, figsize=(16, 8))
-    ax.imshow(image.permute(1, 2, 0))
+    mid_x = ((x0 + x1) / 2)
+    mid_y = ((y0 + y1) / 2)
+
+    # Center the text in the box
+    text_x = mid_x - (font_bbox[2] / 2)
+    text_y = mid_y - (font_bbox[3] / 2)
+
+
+    draw.text((text_x, text_y), text, fill=outline, font=font)
+
+
+def _is_predicted(targetOrPredicted: Target | PredictedTarget) -> TypeGuard[PredictedTarget]:
+    return ('scores' in targetOrPredicted)
+
+
+Box = Tuple[int, int, int, int]
+Label = int
+Score = int
+
+
+@overload
+def _to_cpu(targetOrPredicted: Target) -> Iterable[Tuple[Box, Label]]:
+    ...
+
+
+@overload
+def _to_cpu(targetOrPredicted: PredictedTarget) -> Iterable[Tuple[Box, Label, Score]]:
+    ...
+
+
+def _to_cpu(targetOrPredicted: Target | PredictedTarget) -> Iterable[Tuple[Box, Label, Score]] | Iterable[Tuple[Box, Label]]:
+    boxes = targetOrPredicted['boxes'].cpu().numpy().astype(int)
+    labels = targetOrPredicted['labels'].cpu().numpy().astype(int)
+
+    if _is_predicted(targetOrPredicted):
+        scores = targetOrPredicted['scores'].cpu().numpy().astype(float)
+
+        return zip(boxes, labels, scores)
+
+    return zip(boxes, labels)
+
+
+@overload
+def show_prediction(image: torch.Tensor, label_map: LabelGetter,
+                    target: Optional[Target] = None, predicted: Optional[PredictedTarget] = None,
+                    min_score: float = 0.5) -> Image.Image:
+    ...
+
+
+@overload
+def show_prediction(image: Image.Image, label_map: LabelGetter,
+                    target: Optional[Target] = None, predicted: Optional[PredictedTarget] = None,
+                    min_score: float = 0.5) -> Image.Image:
+    ...
+
+
+def show_prediction(image: torch.Tensor | Image.Image, label_map: LabelGetter,
+                    target: Optional[Target] = None, predicted: Optional[PredictedTarget] = None,
+                    min_score: float = 0.5) -> Image.Image:
+
+    if isinstance(image, torch.Tensor):
+        image = cast(Image.Image, ToPILImage()(image.cpu()))
+    else:
+        image = image.copy()
+
+    image = image.convert('RGBA')
+    overlay = Image.new('RGBA', image.size, (0, 0, 0, 0))
+
+    draw = ImageDraw.Draw(overlay)
 
     if target is not None:
-        for box, label in zip(target['boxes'], target['labels']):
-            render_boxes(ax, box, label_map[int(label.item())], 'red', 'top')
+        for box, label in _to_cpu(target):
+            _draw_bounding_box(
+                draw, box, label_map[label], 'green', '#00FF0030')
 
-    if predicted is not None:
-        for box, label, score in zip(predicted['boxes'], predicted['labels'], predicted['scores']):
-            if score > min_score:
-                text = f"{label_map[int(label.item())]} ({score:.2f})"
-                render_boxes(ax, box, text, 'yellow', 'bottom')
+    if predicted:
+        for box, label, score in _to_cpu(predicted):
+            if score < min_score:
+                continue
+            _draw_bounding_box(draw, box, label_map[label], 'red', '#FF000030')
+
+    image = Image.alpha_composite(image, overlay)
+
+    return image

@@ -2,7 +2,7 @@ import json
 import logging
 import os
 from typing import (Callable, Dict, Generic, Iterable, Iterator, List,
-                    Optional, Tuple, TypeVar, cast)
+                    Optional as Opt, Tuple, TypeVar, cast)
 
 import torch
 from PIL import Image, ImageOps
@@ -16,50 +16,16 @@ from money_counter.models import Target
 from money_counter.via_utils import is_region_annotated, to_target
 from vgg_image_annotation import v2
 
-TTransformedImage = TypeVar("TTransformedImage")
-
-ImageTransform = Callable[[Image.Image], TTransformedImage]
-"""Callback to transform an image."""
-
-TTransformedTarget = TypeVar("TTransformedTarget")
-
-TargetTransform = Callable[[Target], TTransformedTarget]
-"""Callback to transform a target."""
-
-DatasetItem = Tuple[TTransformedImage, TTransformedTarget]
+DatasetItem = Tuple[torch.Tensor, Target]
 """Item returned by a Torch Dataset instance."""
 
+ViaTransform = Callable[[Image.Image, Target], DatasetItem]
+"""Callback to transform a target."""
 
-def _no_op_transform(x): return x
-
-
-label_map = {label: i for i, label in enumerate(CLASSES)}
-
-
-class NormalizeImageSize:
-    """
-    Normalize an image to a fixed size.
-
-    Some images where captured with a small difference in size. This transform
-    normalizes the images to a fixed size, by transforming the image to either
-    4000x3000 or 3000x4000, depending on the aspect ratio.
-    """
-
-    def __init__(self, width: int = 4000, height: int = 3000):
-        self._height = height
-        self._width = width
-
-    def __call__(self, image: Image.Image) -> Image.Image:
-        size = image.size
-        if size[0] > size[1]:
-            image = image.resize((self._width, self._height))
-        else:
-            image = image.resize((self._height, self._width))
-
-        return image
+_label_map = {label: i for i, label in enumerate(CLASSES)}
 
 
-class CoinsDataset(Dataset[DatasetItem], Generic[TTransformedImage, TTransformedTarget]):
+class ViaDataset(Dataset[DatasetItem]):
     """
     The dataset of coins.
 
@@ -72,8 +38,7 @@ class CoinsDataset(Dataset[DatasetItem], Generic[TTransformedImage, TTransformed
 
     def __init__(
             self, annotations_path: str, *,
-            transform: ImageTransform = _no_op_transform, target_transform: TargetTransform = _no_op_transform,
-            metadata_transform: Optional[Callable[[List[v2.ImageMetadata]], List[v2.ImageMetadata]]] = None):
+            transform: Opt[ViaTransform] = None):
         """
         Initialises a new instance of CoinsDataset.
         :param annotations_path: path to the json file produced by the VIA (VGG Image Annotation) tool.
@@ -84,10 +49,11 @@ class CoinsDataset(Dataset[DatasetItem], Generic[TTransformedImage, TTransformed
         if not os.path.isfile(annotations_path):
             raise FileNotFoundError(f"File '{annotations_path}' not found.")
 
+        self._annotations_path = annotations_path
+        """Path to the json file produced by the VIA (VGG Image Annotation) tool."""
+
         self._transform = transform
-        """Additional transform to be applied on the image."""
-        self._transform_metadata = target_transform
-        """Additional transform to be applied on the metadata."""
+        """Additional transform to be applied on the target and image."""
 
         self.filename_map: Dict[str, int] = {}
         """The map between the filenames and the encoded filenames."""
@@ -95,18 +61,17 @@ class CoinsDataset(Dataset[DatasetItem], Generic[TTransformedImage, TTransformed
         with open(annotations_path) as f:
             via: v2.ViaV2SaveFileFormat = json.load(f)
 
-        default_filepath = via['_via_settings']['core']['default_filepath']
         # Images are relative to the path of the annotations file
-        self._root_dir = os.path.join(
-            os.path.dirname(annotations_path), default_filepath)
-
+        annotations_file_dir = os.path.dirname(annotations_path)
+        # And the are in a subfolder thats the default filepath
+        default_filepath = via['_via_settings']['core']['default_filepath']
+        # So we can get the root dir by joining the two
+        self._root_dir = os.path.join(annotations_file_dir, default_filepath)
         """Directory with the images."""
-        # Get the metadata for the images
-        self._images_metadata = [
-            v for _, v in via['_via_img_metadata'].items()]
 
-        if (metadata_transform is not None):
-            self._images_metadata = metadata_transform(self._images_metadata)
+        # Get the metadata fe images
+        self._images_metadata = list(via['_via_img_metadata'].values())
+        """List of images metadata"""
 
         # Cache the name of the images for faster access
         self._images_names = [metadata['filename']
@@ -121,12 +86,12 @@ class CoinsDataset(Dataset[DatasetItem], Generic[TTransformedImage, TTransformed
         filename = self._images_names[idx]
 
         image = self._get_image(filename)
+        metadata = self._images_metadata[idx]
         target = to_target(
-            self._images_metadata[idx], image.size, label_map, self.filename_map)
+            metadata, image.size, _label_map, self.filename_map)
 
-        image = self._transform(image)
-
-        target = self._transform_metadata(target)
+        if self._transform:
+            image, target = self._transform(image, target)
 
         return image, target
 
@@ -140,21 +105,20 @@ class CoinsDataset(Dataset[DatasetItem], Generic[TTransformedImage, TTransformed
         return image
 
 
-class CoinsDatasetOnlyAnnotated(CoinsDataset[TTransformedImage, TTransformedTarget]):
+class ViaDatasetOnlyAnnotated(ViaDataset):
     """
     The dataset of coins, but only the annotated images.
     """
 
     def __init__(
-            self, annotations_path: str, transform: ImageTransform = _no_op_transform, transform_target: TargetTransform = _no_op_transform):
+            self, annotations_path: str, *, transform: Opt[ViaTransform] = None):
         """
         Initialises a new instance of CoinsDataset.
         :param viajson_path: path to the json file produced by the VIA (VGG Image Annotation) tool
         :param root_dir: directory with all the images.
         :param transform: optional transform to be applied on a sample.
         """
-        super().__init__(annotations_path,
-                         transform=transform, target_transform=transform_target)
+        super().__init__(annotations_path, transform=transform)
 
         # Remove the images that don't have any annotations
         self._images_metadata = [
@@ -231,26 +195,123 @@ def collate_into_lists(items: List[DatasetItem]) -> Tuple[List[Image.Image], Lis
 
 TDL = TypeVar("TDL")
 
-default_transform = transforms.Compose([
+T1 = TypeVar('T1')
+T2 = TypeVar('T2')
+
+
+def to_via_transform(image_transform: Callable[[T1], T2]) -> Callable[[T1, Target], Tuple[T2, Target]]:
+    """
+    Wraps a transform that only transforms the image into a transform that transforms both the image and the target.
+    """
+    def _transform(image: T1, target: Target) -> Tuple[T2, Target]:
+        transformed_image = image_transform(image)
+        return transformed_image, target
+
+    return _transform
+
+
+TLast = TypeVar('TLast')
+
+
+class ComposeViaTransform(Generic[TLast]):
+    """
+    Composes multiple transforms into a single one.
+    :note: 
+        Similar to torchvision.transforms.Compose, but for ViaTransforms.
+    """
+
+    def __init__(self, transforms: List[Callable]) -> None:
+        self._transforms = transforms
+
+    def __call__(self, image: Image.Image, target: Target) -> Tuple[TLast, Target]:
+        for transform in self._transforms:
+            image, target = transform(image, target)
+
+        return cast(TLast, image), target
+
+
+class NormalizeImageSize:
+    """
+    Normalize an image to a fixed size.
+
+    Some images where captured with a small difference in size. This transform
+    normalizes the images to a fixed size, by transforming the image to either
+    4000x3000 or 3000x4000, depending on the aspect ratio.
+    """
+
+    def __init__(self, width: int = 4000, height: int = 3000):
+        self._height = height
+        self._width = width
+
+    def __call__(self, image: Image.Image, target: Target):
+        size = image.size
+        if size[0] > size[1]:
+            image = image.resize((self._width, self._height))
+            target = self._resize_target(
+                target, size, (self._width, self._height))
+        else:
+            image = image.resize((self._height, self._width))
+            target = self._resize_target(
+                target, size, (self._height, self._width))
+
+        return image, target
+
+    def _resize_target(self, target: Target, old_size: Tuple[int, int], new_size: Tuple[int, int]) -> Target:
+        """
+        Resizes a target to a new size.
+        """
+        boxes = target['boxes']
+        boxes[:, 0] = boxes[:, 0] / old_size[0] * new_size[0]
+        boxes[:, 1] = boxes[:, 1] / old_size[1] * new_size[1]
+        boxes[:, 2] = boxes[:, 2] / old_size[0] * new_size[0]
+        boxes[:, 3] = boxes[:, 3] / old_size[1] * new_size[1]
+        target['boxes'] = boxes
+        return target
+
+
+default_transform = ComposeViaTransform[torch.Tensor]([
     NormalizeImageSize(),
-    transforms.ToTensor(),
-    transforms.ConvertImageDtype(torch.float)
+    to_via_transform(transforms.ToTensor()),
+    to_via_transform(transforms.ConvertImageDtype(torch.float)),
 ])
 
 
-def get_data_loaders(dataset_path: str, transform: ImageTransform = default_transform, batch_size=3, *, test_percentage=0.2):
-    """Get train and test data loaders."""
+def get_data_loaders(
+        dataset_path: str,
+        *,
+        train_transform: Opt[ViaTransform] = default_transform,
+        test_transform:  Opt[ViaTransform] = default_transform,
+        batch_size=3,
+        test_percentage=0.2) -> Tuple[DataLoader, DataLoader]:
+    """
+    Get train and test data loaders.
+    :param dataset_path:
+        The path to the via json file.
+    :param train_transform:
+        The transform to apply to the training data.
+    :param test_transform:
+        The transform to apply to the test data.
+    :param batch_size:
+        How many images to load at each call.
+    :param test_percentage: 
+        The percentage of the dataset to use for testing. The rest is used for training.
+    :return:
+        A tuple of train and test data loaders.
+    """
     # use our dataset and defined transformations
-    source = CoinsDatasetOnlyAnnotated(dataset_path, transform=transform)
+    source_train = ViaDatasetOnlyAnnotated(
+        dataset_path, transform=train_transform)
+    source_test = ViaDatasetOnlyAnnotated(
+        dataset_path, transform=test_transform)
 
     # split the dataset in train and test set
     torch.manual_seed(1)
-    indices = torch.randperm(len(source)).tolist()
+    indices = torch.randperm(len(source_train)).tolist()
 
-    test_size = int(test_percentage * len(source))
+    test_size = int(test_percentage * len(source_train))
 
-    dataset_train = data.Subset(source, indices[:-test_size])
-    dataset_test = data.Subset(source, indices[-test_size:])
+    dataset_train = data.Subset(source_train, indices[:-test_size])
+    dataset_test = data.Subset(source_test, indices[-test_size:])
 
     logging.info(f'Train dataset size: {len(dataset_train)}')
     logging.info(f'Test dataset size: {len(dataset_test)}')
