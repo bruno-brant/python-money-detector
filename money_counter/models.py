@@ -53,6 +53,7 @@ def _get_fasterrcnn(weights: Optional[FasterRCNN_ResNet50_FPN_Weights]) -> Faste
     """
     # load a model pre-trained on COCO
     model = torchvision.models.detection.fasterrcnn_resnet50_fpn(
+        progress=False,
         weights=weights)
 
     # replace the classifier with a new one, that has
@@ -94,6 +95,7 @@ def _get_fasterrcnn_v2(weights: Optional[FasterRCNN_ResNet50_FPN_V2_Weights]) ->
     """
     # load a model
     model = torchvision.models.detection.fasterrcnn_resnet50_fpn_v2(
+        progress=False,
         weights=weights)
 
     # replace the classifier with a new one, that has
