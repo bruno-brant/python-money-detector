@@ -1,6 +1,7 @@
 # create a small server to run the model and return the result
 # import the necessary packages
 import base64
+import os
 import io
 from logging.config import dictConfig
 from typing import cast
@@ -10,10 +11,14 @@ import torch
 from flask import Flask, jsonify, request
 from PIL import Image
 
-from money_counter import constants, models, prediction
+from money_counter import models, prediction
 from money_counter.utils import Timer
 
-MODEL_STATE_DIR = f'./model_state'
+from money_counter.constants import CLASSES
+
+# The directory where the model state is stored
+# Models are expected to be like ./<MODEL_STATE_DIR>/<model_name>/epoch_<num>.pth
+MODEL_STATE_DIR = os.environ.get('MODEL_STATE_DIR', './model_state')
 
 dictConfig({
     'version': 1,
@@ -87,8 +92,8 @@ def predict():
     # The coins that were detected
     coins = [{
         "score": float(score),
-        "label": constants.CLASSES[int(label)],
-        "value": int(constants.CLASSES[int(label)]) * 0.01 if constants.CLASSES[int(label)] else 0,
+        "label": CLASSES[int(label)],
+        "value": int(CLASSES[int(label)]) * 0.01 if CLASSES[int(label)].isdigit() else 0,
         "boundingBox": {
             "topLeft": [int(boxes[0]), int(boxes[1])],
             "bottomRight": [int(boxes[2]), int(boxes[3])]
