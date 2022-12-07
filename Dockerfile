@@ -23,12 +23,10 @@ COPY vgg_image_annotation /app/vgg_image_annotation
 COPY money_counter /app/money_counter
 
 # Download the model state file
-ADD https://moneycounter.blob.core.windows.net/models/model_state/fasterrcnn_resnet50_fpn-pretrained/fasterrcnn_resnet50_fpn-untrained/epoch_042.pth /app/model_state/fasterrcnn_resnet50_fpn/epoch_042.pth
+ADD https://moneycounter.blob.core.windows.net/models/model_state/fasterrcnn_resnet50_fpn-pretrained/fasterrcnn_resnet50_fpn-untrained/epoch_042.pth /app/model_state/fasterrcnn_resnet50_fpn-untrained/epoch_042.pth
 
 # Make sure the HTTPS port is exposed
 EXPOSE 443
-
-
 
 COPY gunicorn.conf.py /app
 
