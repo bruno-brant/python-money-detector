@@ -3,8 +3,9 @@
 import base64
 import os
 import io
+from logging import getLogger
 from logging.config import dictConfig
-from typing import cast
+from typing import List, Optional, Tuple, TypedDict, cast
 
 import flask
 import torch
@@ -40,6 +41,8 @@ dictConfig({
     }
 })
 
+logger = getLogger('server')
+
 
 def initialize_predictor():
     model, model_name = models.get_fasterrcnn_untrained()
@@ -48,14 +51,51 @@ def initialize_predictor():
     epoch, loss = version_manager.load_model(
         model_name, model, map_location=device)
 
-    print(f'Loaded model from epoch {epoch} with loss {loss}')
+    logger.info(f'Loaded model from epoch {epoch} with loss {loss}')
 
     return prediction.Predictor(model, model_name, device=device)
 
 
 predictor = initialize_predictor()
 
+
 app = Flask(__name__)
+
+
+class BoundingBox(TypedDict):
+    topLeft: Tuple[int, int]
+    bottomRight: Tuple[int, int]
+
+
+class CoinDescription(TypedDict):
+    score: float
+    label: str
+    value: float
+    boundingBox: BoundingBox
+
+
+def _decode_label(label_idx: int) -> Tuple[str, float]:
+    """
+    :returns:
+        A tuple of the label name and the value of the coin.
+    """
+    if not 0 <= label_idx < len(CLASSES):
+        raise ValueError(f'Unknown label {label_idx}')
+
+    return (CLASSES[label_idx], int(CLASSES[label_idx]) * 0.01 if CLASSES[label_idx].isdigit() else 0)
+
+
+def _to_coin_description(boxes: torch.Tensor, label: int, score: float):
+    label_txt, value = _decode_label(label)
+
+    return CoinDescription(
+        score=score,
+        label=label_txt,
+        value=value,
+        boundingBox=BoundingBox(
+            topLeft=(int(boxes[0]), int(boxes[1])),
+            bottomRight=(int(boxes[2]), int(boxes[3]))
+        ))
 
 
 @app.after_request
@@ -70,6 +110,8 @@ def handle_cors(response: flask.Response) -> flask.Response:
 @app.route("/api/v1/predict", methods=["POST"])
 @app.route("/v1/predict", methods=["POST"])
 def predict():
+    logger.info(f'content type: {request.content_type}')
+
     if request.content_type == 'application/json':
         image_base64 = request.json['image']  # type: ignore
         image_bytes = base64.b64decode(image_base64)
@@ -81,24 +123,19 @@ def predict():
     else:
         return jsonify({'error': 'unsupported content type'}), 400
 
-    print(f'image size: {image.size}')
+    logger.info(f'image size: {image.size}')
 
     with Timer() as timer:
+        logger.info('Predicting...')
         result = predictor.predict(image)
+        logger.info('...finished.')
 
-    result = cast(models.PredictedTarget, {k: cast(torch.Tensor, v).cpu().numpy().tolist()
-                                           for k, v in result.items()})
+    result = {k: cast(torch.Tensor, v).cpu().tolist()
+              for k, v in result.items()}
 
     # The coins that were detected
-    coins = [{
-        "score": float(score),
-        "label": CLASSES[int(label)],
-        "value": int(CLASSES[int(label)]) * 0.01 if CLASSES[int(label)].isdigit() else 0,
-        "boundingBox": {
-            "topLeft": [int(boxes[0]), int(boxes[1])],
-            "bottomRight": [int(boxes[2]), int(boxes[3])]
-        }
-    } for boxes, label, score in zip(result["boxes"], result["labels"], result["scores"])]
+    coins = [_to_coin_description(boxes, label, score)
+             for boxes, label, score in zip(result["boxes"], result["labels"], result["scores"])]
 
     formatted = {
         "data": {
