@@ -1,8 +1,9 @@
 import json
-import logging
 import os
-from typing import (Callable, Dict, Generic, Iterable, Iterator, List,
-                    Optional as Opt, Tuple, TypeVar, cast)
+from logging import getLogger
+from typing import Callable, Dict, Generic, Iterable, Iterator, List
+from typing import Optional as Opt
+from typing import Tuple, TypeVar, cast
 
 import torch
 from PIL import Image, ImageOps
@@ -23,6 +24,8 @@ ViaTransform = Callable[[Image.Image, Target], DatasetItem]
 """Callback to transform a target."""
 
 _label_map = {label: i for i, label in enumerate(CLASSES)}
+
+logging = getLogger(__name__)
 
 
 class ViaDataset(Dataset[DatasetItem]):
@@ -87,10 +90,9 @@ class ViaDataset(Dataset[DatasetItem]):
 
         image = self._get_image(filename)
         metadata = self._images_metadata[idx]
-        target = to_target(
-            metadata, image.size, _label_map, self.filename_map)
+        target = to_target(metadata, image.size, _label_map, self.filename_map)
 
-        if self._transform:
+        if self._transform:  # apply the transform
             image, target = self._transform(image, target)
 
         return image, target
@@ -282,7 +284,7 @@ def get_data_loaders(
         train_transform: Opt[ViaTransform] = default_transform,
         test_transform:  Opt[ViaTransform] = default_transform,
         batch_size=3,
-        test_percentage=0.2) -> Tuple[DataLoader, DataLoader]:
+        test_percentage=0.2) -> Tuple[DataLoader[DatasetItem], DataLoader[DatasetItem]]:
     """
     Get train and test data loaders.
     :param dataset_path:
@@ -317,10 +319,10 @@ def get_data_loaders(
     logging.info(f'Test dataset size: {len(dataset_test)}')
 
     # define training and validation data loaders
-    data_loader_train = DataLoader(
+    data_loader_train = DataLoader[DatasetItem](
         dataset_train, batch_size=batch_size, shuffle=True, collate_fn=collate_into_lists)
 
-    data_loader_test = DataLoader(
+    data_loader_test = DataLoader[DatasetItem](
         dataset_test, batch_size=batch_size, shuffle=False, collate_fn=collate_into_lists)
 
     return data_loader_train, data_loader_test

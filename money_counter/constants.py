@@ -1,6 +1,9 @@
-# Shared constants for all experiments
+"""
+Shared constants for all experiments
+"""
+
 CLASSES = ['Background', 'Unknown', '5', '10', '25', '50', '100']
-"""All the classes that are in the dataset"""
+"""All the classes that are in the dataset, in order."""
 
 NUM_CLASSES = len(CLASSES) 
 """Number of classes in the dataset"""

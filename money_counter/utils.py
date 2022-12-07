@@ -358,30 +358,88 @@ def decode_data(map: Dict[Any, int], data: Iterable[int]):
 
 
 class Timer:
+    """
+    A simple timer.
+    :remarks: 
+        This class leverages the enter/exit protocol to allow for easy timing of code blocks.
+    """
     def __init__(self):
+        """
+        Initializes a new instance of the Timer class.
+        """
         self.reset()
 
     def reset(self):
+        """
+        Resets the timer.
+        """
         self._start = 0.
         self._end = 0.
 
     def start(self):
+        """
+        Starts the timer.
+        """
         self._start = time.time()
 
     def stop(self):
+        """
+        Stops the timer.
+        """
         self._end = time.time()
 
     def elapsed(self):
+        """
+        Returns the elapsed time - use only after it has been stopped.
+        """
+        if self._end == 0.:
+            raise RuntimeError("Timer has not been stopped.")
         return self._end - self._start
 
     def __enter__(self):
         self.start()
         return self
 
-    def __exit__(self, *args):
+    def __exit__(self, exc_type, exc_val, exc_tb):
         self.stop()
+
+        if exc_val is not None:
+            raise exc_val
+        
         return self
 
 
 def get_device() -> torch.device:
     return torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+class PrintToLog():
+    """
+    Redirect the calls from print to logging.info.
+    
+    :remarks:
+        This is necessary primarily because of the COCO utilities that use print.
+        That's something that requires fixing asap by the COCO team, but this 
+        hack will allow us to use the library directly without issues.
+
+        This just does some monkey patching. Be careful! You may endup with a 
+        unusable print function if there is an exception.
+    """
+    def __init__(self, name: str = ''):
+        """
+        Initializes a new instance of the PrintToLog class.
+        :param name: 
+                The name of the module for the logging.
+        """
+        self._log = getLogger(name or __name__)
+        
+    def __enter__(self):
+        global print
+        self._old_print = print # type: ignore 
+        print = self._log.info
+        
+    def __exit__(self, _exc_type, exc_val, _exc_tb):
+        global print
+        print = self._old_print
+
+        if exc_val is not None:
+            raise exc_val

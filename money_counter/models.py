@@ -126,6 +126,24 @@ def get_fasterrcnn_v2_untrained() -> Tuple[FasterRCNN, str]:
     return model, "fasterrcnn_resnet50_fpn_v2-untrained"
 
 
+def get_model(model_name: str) -> FasterRCNN:
+    """
+    Gets a model by name.
+    :param model_name: The name of the model.
+    :return: The model.
+    """
+    if model_name == "fasterrcnn_resnet50_fpn-pretrained":
+        return get_fasterrcnn_pretrained()[0]
+    if model_name == "fasterrcnn_resnet50_fpn-untrained":
+        return get_fasterrcnn_untrained()[0]
+    if model_name == "fasterrcnn_resnet50_fpn_v2-pretrained":
+        return get_fasterrcnn_v2_pretrained()[0]
+    if model_name == "fasterrcnn_resnet50_fpn_v2-untrained":
+        return get_fasterrcnn_v2_untrained()[0]
+
+    raise ValueError(f"Unknown model name: {model_name}")
+
+
 Checkpoint = TypedDict('Checkpoint', {
     'epoch': int,
     'model_state_dict': Dict,
@@ -163,17 +181,16 @@ class VersionManager:
 
         if not os.path.exists(model_path):
             logging.warning(
-                f'Could not find checkpoint for model "{model_name}" with epoch "{epoch}" and mode "{mode}".')
+                f'Could not find model state for "{model_name}" with epoch "{epoch}" and mode "{mode}".')
             return 0, float('inf')
 
-        logging.info(f'Loading model from {model_path}')
+        logging.debug(f'Loading model state from {model_path}')
 
         checkpoint: Checkpoint = torch.load(
             model_path, map_location=map_location)
 
         # load the model mapping to cpu
         model.load_state_dict(checkpoint['model_state_dict'])
-        model.load_state_dict(checkpoint['model_state_dict'], )
 
         if optimizer is not None:
             optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
@@ -181,9 +198,10 @@ class VersionManager:
         epoch = checkpoint['epoch']
         loss = checkpoint['loss']
 
-        logging.info(f'Loaded model from {model_path}')
+        logging.info(f'Loaded model state from {model_path}')
 
         return epoch, loss
+
 
     def save_model(self, model_name: str, model: torch.nn.Module,
                    optimizer: torch.optim.Optimizer, epoch: int, loss: float):

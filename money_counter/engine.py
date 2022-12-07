@@ -1,34 +1,37 @@
 import math
 import sys
 from logging import getLogger
-from typing import List, cast
+from typing import List, cast, Optional as Opt
 
 import torch
 import torchvision
 import torchvision.models.detection.mask_rcnn
 from torch.utils.data import DataLoader
 
-from .coco_eval import CocoEvaluator
+from .coco_eval import CocoEvaluator, IoUType
 from .coco_utils import get_coco_api_from_dataset
 from .models import PredictedTarget
-from .utils import MetricLogger, SmoothedValue, Timer, reduce_dict
+from .utils import MetricLogger, SmoothedValue, Timer, get_device, reduce_dict, PrintToLog
 
 logging = getLogger(__name__)
 
 
 def train_one_epoch(
     model: torch.nn.Module,
-	optimizer: torch.optim.Optimizer,
-	data_loader: DataLoader,
-    device: torch.device,
-	epoch: int,
-	print_freq: int,
-	scaler=None):
+        optimizer: torch.optim.Optimizer,
+        data_loader: DataLoader,
+        device: Opt[torch.device],
+        epoch: int,
+        print_freq: int = 10,
+        scaler=None):
     model.train()
     metric_logger = MetricLogger(delimiter="  ")
     metric_logger.add_meter("lr", SmoothedValue(
-            window_size=1, fmt="{value:.6f}"))
+        window_size=1, fmt="{value:.6f}"))
     header = f"Epoch: [{epoch}]"
+
+    if device == None:
+        device = get_device()
 
     lr_scheduler = None
 
@@ -60,7 +63,7 @@ def train_one_epoch(
             sys.exit(1)
 
         optimizer.zero_grad()
-        
+
         if scaler is not None:
             scaler.scale(losses).backward()
             scaler.step(optimizer)
@@ -78,11 +81,11 @@ def train_one_epoch(
     return metric_logger
 
 
-def _get_iou_types(model):
+def _get_iou_types(model) -> List[IoUType]:
     model_without_ddp = model
     if isinstance(model, torch.nn.parallel.DistributedDataParallel):
         model_without_ddp = model.module
-    iou_types = ["bbox"]
+    iou_types: List[IoUType] = ["bbox"]
     if isinstance(model_without_ddp, torchvision.models.detection.MaskRCNN):
         iou_types.append("segm")
     if isinstance(model_without_ddp, torchvision.models.detection.KeypointRCNN):
@@ -91,23 +94,27 @@ def _get_iou_types(model):
 
 
 @torch.inference_mode()
-def evaluate(
-	model: torch.nn.Module,
-	data_loader: DataLoader,
-	device: torch.device):
+def evaluate(model: torch.nn.Module, data_loader: DataLoader, device: Opt[torch.device] = None, *, print_freq: int = 100, coco_evaluator: Opt[CocoEvaluator] = None):
     n_threads = torch.get_num_threads()
     # FIXME remove this and make paste_masks_in_image run on the GPU
     torch.set_num_threads(1)
     cpu_device = torch.device("cpu")
     model.eval()
+
     metric_logger = MetricLogger(delimiter="  ")
     header = "Test:"
 
-    coco = get_coco_api_from_dataset(data_loader.dataset)
-    iou_types = _get_iou_types(model)
-    coco_evaluator = CocoEvaluator(coco, iou_types)
+    if coco_evaluator is None:
+        logging.info("Loading COCO API...")
 
-    for images, targets in metric_logger.log_every(data_loader, 100, header):
+        with PrintToLog(__name__):
+            coco = get_coco_api_from_dataset(data_loader.dataset)
+            iou_types = _get_iou_types(model)
+            coco_evaluator = CocoEvaluator(coco, iou_types)
+
+        logging.info("Loaded COCO API.")
+
+    for images, targets in metric_logger.log_every(data_loader, print_freq, header):
         images = list(img.to(device) for img in images)
 
         if torch.cuda.is_available():
@@ -116,9 +123,9 @@ def evaluate(
         with Timer() as model_time:
             outputs = model(images)
 
-            # Move output to the CPU
-            outputs = [{k: v.to(cpu_device) for k, v in output.items()}
-                       for output in outputs]
+        # Move output to the CPU
+        outputs = [{k: v.to(cpu_device) for k, v in output.items()}
+                   for output in outputs]
 
         outputs = {target["image_id"].item(): output
                    for target, output in zip(targets, outputs)}

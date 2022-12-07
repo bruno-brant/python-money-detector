@@ -10,6 +10,8 @@ import torchvision
 from pycocotools import mask as coco_mask
 from pycocotools.coco import COCO
 
+from money_counter.data import ViaDataset
+
 #from .transforms import Compose
 
 
