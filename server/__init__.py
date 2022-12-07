@@ -13,6 +13,8 @@ from PIL import Image
 from money_counter import constants, models, prediction
 from money_counter.utils import Timer
 
+MODEL_STATE_DIR = f'./model_state'
+
 dictConfig({
     'version': 1,
     'formatters': {
@@ -36,7 +38,7 @@ dictConfig({
 
 def initialize_predictor():
     model, model_name = models.get_fasterrcnn_untrained()
-    version_manager = models.VersionManager(constants.MODEL_STATE_DIR)
+    version_manager = models.VersionManager(MODEL_STATE_DIR)
     device = torch.device('cpu')
     epoch, loss = version_manager.load_model(
         model_name, model, map_location=device)
