@@ -189,4 +189,4 @@ def get_bounding_box(shape: ShapeAttributes, size: Tuple[int, int]) -> BoundingB
     topleft = [max(c, 0) for c in topleft]
     bottomright = [min(c, s) for c, s in zip(bottomright, size)]
 
-    return topleft, bottomright
+    return cast(BoundingBox, (topleft, bottomright))

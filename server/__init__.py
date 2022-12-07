@@ -3,7 +3,7 @@
 import base64
 import io
 from logging.config import dictConfig
-from typing import TypedDict, cast
+from typing import cast
 
 import flask
 import torch

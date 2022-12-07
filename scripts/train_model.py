@@ -1,9 +1,9 @@
-from typing import Optional
-from torchvision import transforms
-import torch
 import argparse
 import os
-from logging import getLogger, basicConfig, INFO
+from logging import INFO, basicConfig, getLogger
+
+import torch
+from torchvision import transforms
 
 from money_counter import data, training
 
@@ -29,6 +29,7 @@ transform = data.ComposeViaTransform([
     data.NormalizeImageSize(4000 // 8, 3000 // 8),
     # transforms.RandomRotation(90),
     # transforms.GaussianBlur(5),
+    # TODO: make ComposeViaTransform be able to identify when a transform applies only to the image
     data.to_via_transform(transforms.AutoAugment()),
     data.to_via_transform(transforms.ToTensor()),
     data.to_via_transform(transforms.ConvertImageDtype(torch.float)),
@@ -51,4 +52,4 @@ def train_model(model, model_name, *, batch_size: int = 3):
 
     # Train the model
     training.train(model, model_name, data_loader_train, data_loader_test,
-                   state_dir=args.model_state_dir, print_frequency=25, num_epochs=100)
+                   state_dir=args.model_state_dir, print_frequency=25, num_epochs=50)
